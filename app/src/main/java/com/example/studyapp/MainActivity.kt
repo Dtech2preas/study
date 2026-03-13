@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +46,7 @@ fun MainAppScreen() {
     val items = listOf(
         Screen.Study,
         Screen.Dashboard,
+        Screen.History,
         Screen.Settings
     )
     val studyViewModel: StudyViewModel = viewModel()
@@ -58,6 +60,7 @@ fun MainAppScreen() {
                     val icon = when (screen.route) {
                         "study" -> Icons.Filled.Home
                         "dashboard" -> Icons.Filled.Info
+                        "history" -> Icons.Filled.List
                         else -> Icons.Filled.Settings
                     }
                     NavigationBarItem(
@@ -81,6 +84,7 @@ fun MainAppScreen() {
         NavHost(navController, startDestination = Screen.Study.route, Modifier.padding(innerPadding)) {
             composable(Screen.Study.route) { StudyScreen(studyViewModel) }
             composable(Screen.Dashboard.route) { DashboardScreen(studyViewModel) }
+            composable(Screen.History.route) { com.example.studyapp.ui.study.HistoryScreen(studyViewModel) }
             composable(Screen.Settings.route) { SettingsScreen() }
         }
     }
@@ -89,5 +93,6 @@ fun MainAppScreen() {
 sealed class Screen(val route: String) {
     object Study : Screen("study")
     object Dashboard : Screen("dashboard")
+    object History : Screen("history")
     object Settings : Screen("settings")
 }

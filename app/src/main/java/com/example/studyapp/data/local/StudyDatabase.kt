@@ -5,9 +5,19 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [StudySession::class], version = 1, exportSchema = false)
+@Database(
+    entities = [
+        StudySession::class,
+        DocumentHistory::class,
+        SummaryHistory::class,
+        QuizHistory::class
+    ],
+    version = 2,
+    exportSchema = false
+)
 abstract class StudyDatabase : RoomDatabase() {
     abstract fun studySessionDao(): StudySessionDao
+    abstract fun historyDao(): HistoryDao
 
     companion object {
         @Volatile
@@ -19,7 +29,9 @@ abstract class StudyDatabase : RoomDatabase() {
                     context.applicationContext,
                     StudyDatabase::class.java,
                     "study_database"
-                ).build()
+                )
+                .fallbackToDestructiveMigration() // Simple migration strategy for this step
+                .build()
                 INSTANCE = instance
                 instance
             }
