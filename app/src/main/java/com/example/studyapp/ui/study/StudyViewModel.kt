@@ -52,9 +52,16 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun saveDocumentWithSummary(title: String, originalText: String, summaryText: String) {
         val docId = getOrCreateDocumentId(title, originalText)
-        repository.insertSummaryHistory(
-            com.example.studyapp.data.local.SummaryHistory(documentId = docId, summaryText = summaryText, timestamp = System.currentTimeMillis())
-        )
+        val latestSummary = repository.getLatestSummaryForDocument(docId)
+        if (latestSummary != null) {
+            repository.insertSummaryHistory(
+                latestSummary.copy(summaryText = summaryText, timestamp = System.currentTimeMillis())
+            )
+        } else {
+            repository.insertSummaryHistory(
+                com.example.studyapp.data.local.SummaryHistory(documentId = docId, summaryText = summaryText, timestamp = System.currentTimeMillis())
+            )
+        }
     }
 
     suspend fun saveDocumentWithQuiz(title: String, originalText: String, quizJson: String) {
