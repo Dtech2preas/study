@@ -23,14 +23,6 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Download TFLite AI Model
-      run: |
-        mkdir -p app/src/main/assets
-        # Example URL. In a real scenario, this would point to your hosted compressed SLM model (e.g. from HuggingFace).
-        # We're downloading a tiny dummy file to simulate the process and avoid failing the CI.
-        curl -L -o app/src/main/assets/model.tflite "https://raw.githubusercontent.com/tensorflow/tensorflow/master/tensorflow/lite/java/demo/app/src/main/assets/mobilenet_v1_1.0_224_quant.tflite" || touch app/src/main/assets/model.tflite
-        echo "Model downloaded successfully."
-
     - name: Build Debug APK
       run: ./gradlew assembleDebug
 

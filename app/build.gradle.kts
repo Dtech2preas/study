@@ -70,6 +70,7 @@ dependencies {
     // TensorFlow Lite
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    implementation("org.tensorflow:tensorflow-lite-task-text:0.4.4")
 
     // PDFBox-Android
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
