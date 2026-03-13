@@ -14,7 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.studyapp.ai.AIManager
+import com.example.studyapp.ai.AiChunkResult
+import com.example.studyapp.ai.OnlineAIManager
 import com.example.studyapp.utils.DocumentParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,11 +31,9 @@ fun StudyScreen(viewModel: StudyViewModel) {
     var parsedText by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var aiOutput by remember { mutableStateOf<String?>(null) }
+    var isAiProcessing by remember { mutableStateOf(false) }
 
-    // Initialize AI (will silently fail if dummy model isn't present, which is fine for now)
-    LaunchedEffect(Unit) {
-        AIManager.initModel(context)
-    }
+    val onlineAIManager = remember { OnlineAIManager(context) }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -98,28 +97,52 @@ fun StudyScreen(viewModel: StudyViewModel) {
             Text("Document Parsed (${parsedText!!.length} characters)", style = MaterialTheme.typography.labelMedium)
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(onClick = {
-                    aiOutput = "Processing summary..."
-                    coroutineScope.launch(Dispatchers.Default) {
-                        aiOutput = AIManager.generateSummary(parsedText!!)
-                    }
-                }) {
+                Button(
+                    onClick = {
+                        aiOutput = ""
+                        isAiProcessing = true
+                        coroutineScope.launch {
+                            onlineAIManager.generateSummaryStream(parsedText!!).collect { result ->
+                                handleAiResult(result) { newText ->
+                                    aiOutput = (aiOutput ?: "") + newText + "\n\n"
+                                }
+                            }
+                            isAiProcessing = false
+                        }
+                    },
+                    enabled = !isAiProcessing
+                ) {
                     Text("Summarize")
                 }
-                Button(onClick = {
-                    aiOutput = "Generating quiz..."
-                    coroutineScope.launch(Dispatchers.Default) {
-                        aiOutput = AIManager.generateQuiz(parsedText!!)
-                    }
-                }) {
+                Button(
+                    onClick = {
+                        aiOutput = ""
+                        isAiProcessing = true
+                        coroutineScope.launch {
+                            onlineAIManager.generateQuizStream(parsedText!!).collect { result ->
+                                handleAiResult(result) { newText ->
+                                    aiOutput = (aiOutput ?: "") + newText + "\n\n"
+                                }
+                            }
+                            isAiProcessing = false
+                        }
+                    },
+                    enabled = !isAiProcessing
+                ) {
                     Text("Generate Quiz")
                 }
             }
         }
 
-        if (aiOutput != null) {
+        if (isAiProcessing) {
+            CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+        }
+
+        if (!aiOutput.isNullOrEmpty()) {
             Card(
-                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Text(
@@ -128,6 +151,20 @@ fun StudyScreen(viewModel: StudyViewModel) {
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
+        }
+    }
+}
+
+private fun handleAiResult(result: AiChunkResult, appendText: (String) -> Unit) {
+    when (result) {
+        is AiChunkResult.Success -> {
+            appendText("--- Part ${result.partNumber} of ${result.totalParts} ---\n${result.text}")
+        }
+        is AiChunkResult.Waiting -> {
+            appendText("⏳ ${result.message}")
+        }
+        is AiChunkResult.Error -> {
+            appendText("❌ Error: ${result.message}")
         }
     }
 }
