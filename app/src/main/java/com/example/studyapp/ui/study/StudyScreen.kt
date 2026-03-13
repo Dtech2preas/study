@@ -32,6 +32,8 @@ fun StudyScreen(viewModel: StudyViewModel) {
     var documentTitle by remember { mutableStateOf("Untitled Document") }
     var isLoading by remember { mutableStateOf(false) }
     var aiOutput by remember { mutableStateOf<String?>(null) }
+    var aiSummarySections by remember { mutableStateOf<List<com.example.studyapp.data.local.SummarySection>>(emptyList()) }
+    var waitingMessage by remember { mutableStateOf<String?>(null) }
     var isAiProcessing by remember { mutableStateOf(false) }
     var showQuiz by remember { mutableStateOf(false) }
     var isFullScreenSummary by remember { mutableStateOf(false) }
@@ -143,15 +145,33 @@ fun StudyScreen(viewModel: StudyViewModel) {
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 aiOutput = ""
+                                aiSummarySections = emptyList()
+                                waitingMessage = null
                                 showQuiz = false
                                 isAiProcessing = true
                                 coroutineScope.launch {
                                     onlineAIManager.generateSummaryStream(parsedText!!).collect { result ->
-                                        handleAiResult(result) { newText ->
-                                            aiOutput = (aiOutput ?: "") + newText + "\n\n"
+                                        when (result) {
+                                            is AiChunkResult.Success -> {
+                                                waitingMessage = null
+                                                try {
+                                                    val partialSummary = com.google.gson.Gson().fromJson(result.text, com.example.studyapp.data.local.SummaryResponse::class.java)
+                                                    aiSummarySections = partialSummary.sections
+                                                    aiOutput = result.text
+                                                } catch (e: Exception) {
+                                                    // Ignore parsing error for intermediate states
+                                                }
+                                            }
+                                            is AiChunkResult.Waiting -> {
+                                                waitingMessage = result.message
+                                            }
+                                            is AiChunkResult.Error -> {
+                                                waitingMessage = "❌ Error: ${result.message}"
+                                            }
                                         }
                                     }
                                     isAiProcessing = false
+                                    waitingMessage = null
                                     // Save history
                                     aiOutput?.let { summary ->
                                         viewModel.saveDocumentWithSummary(documentTitle, parsedText!!, summary)
@@ -167,15 +187,27 @@ fun StudyScreen(viewModel: StudyViewModel) {
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 aiOutput = ""
+                                aiSummarySections = emptyList()
+                                waitingMessage = null
                                 showQuiz = false
                                 isAiProcessing = true
                                 coroutineScope.launch {
                                     onlineAIManager.generateQuizStream(parsedText!!).collect { result ->
-                                        handleAiResult(result) { newText ->
-                                            aiOutput = (aiOutput ?: "") + newText
+                                        when (result) {
+                                            is AiChunkResult.Success -> {
+                                                aiOutput = result.text
+                                                waitingMessage = null
+                                            }
+                                            is AiChunkResult.Waiting -> {
+                                                waitingMessage = result.message
+                                            }
+                                            is AiChunkResult.Error -> {
+                                                waitingMessage = "❌ Error: ${result.message}"
+                                            }
                                         }
                                     }
                                     isAiProcessing = false
+                                    waitingMessage = null
                                     showQuiz = true
                                     // Save history
                                     aiOutput?.let { quizJson ->
@@ -198,33 +230,73 @@ fun StudyScreen(viewModel: StudyViewModel) {
             Text("AI is thinking...")
         }
 
-        if (!aiOutput.isNullOrEmpty()) {
+        if (waitingMessage != null) {
+            Text(waitingMessage!!, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+        }
+
+        if (!aiOutput.isNullOrEmpty() || aiSummarySections.isNotEmpty()) {
             if (showQuiz) {
                 InteractiveQuizView(quizJson = aiOutput!!)
             } else {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            TextButton(onClick = { isFullScreenSummary = true }) {
-                                Text("Full Screen")
+                    TextButton(onClick = { isFullScreenSummary = true }) {
+                        Text("Full Screen")
+                    }
+                }
+
+                aiSummarySections.forEachIndexed { index, section ->
+                    var isExplaining by remember { mutableStateOf(false) }
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(section.title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            RichTextView(markdown = section.content, modifier = Modifier.heightIn(min = 100.dp, max = 1000.dp).wrapContentHeight())
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                if (isExplaining) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                } else {
+                                    TextButton(onClick = {
+                                        isExplaining = true
+                                        coroutineScope.launch {
+                                            val newContent = onlineAIManager.explainBetter(section)
+                                            val updatedSections = aiSummarySections.toMutableList()
+                                            updatedSections[index] = section.copy(content = newContent)
+                                            aiSummarySections = updatedSections
+
+                                            val updatedJson = com.google.gson.Gson().toJson(com.example.studyapp.data.local.SummaryResponse(updatedSections))
+                                            aiOutput = updatedJson
+
+                                            // Update history
+                                            viewModel.saveDocumentWithSummary(documentTitle, parsedText!!, updatedJson)
+                                            isExplaining = false
+                                        }
+                                    }) {
+                                        Text("Explain Better")
+                                    }
+                                }
                             }
                         }
-                        RichTextView(markdown = aiOutput!!)
                     }
                 }
             }
         }
     }
 
-    if (isFullScreenSummary && !aiOutput.isNullOrEmpty() && !showQuiz) {
+    if (isFullScreenSummary && aiSummarySections.isNotEmpty() && !showQuiz) {
         // Overlay a full-screen surface that ignores standard dialog margins
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { isFullScreenSummary = false },
@@ -234,7 +306,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background
             ) {
-                Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -248,25 +320,53 @@ fun StudyScreen(viewModel: StudyViewModel) {
                     Spacer(modifier = Modifier.height(16.dp))
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(16.dp))
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        RichTextView(markdown = aiOutput!!)
+
+                    aiSummarySections.forEachIndexed { index, section ->
+                        var isExplaining by remember { mutableStateOf(false) }
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(section.title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                RichTextView(markdown = section.content, modifier = Modifier.heightIn(min = 100.dp, max = 1000.dp).wrapContentHeight())
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    if (isExplaining) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    } else {
+                                        TextButton(onClick = {
+                                            isExplaining = true
+                                            coroutineScope.launch {
+                                                val newContent = onlineAIManager.explainBetter(section)
+                                                val updatedSections = aiSummarySections.toMutableList()
+                                                updatedSections[index] = section.copy(content = newContent)
+                                                aiSummarySections = updatedSections
+
+                                                val updatedJson = com.google.gson.Gson().toJson(com.example.studyapp.data.local.SummaryResponse(updatedSections))
+                                                aiOutput = updatedJson
+
+                                                viewModel.saveDocumentWithSummary(documentTitle, parsedText!!, updatedJson)
+                                                isExplaining = false
+                                            }
+                                        }) {
+                                            Text("Explain Better")
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
-        }
-    }
-}
-
-private fun handleAiResult(result: AiChunkResult, appendText: (String) -> Unit) {
-    when (result) {
-        is AiChunkResult.Success -> {
-            appendText("--- Part ${result.partNumber} of ${result.totalParts} ---\n${result.text}")
-        }
-        is AiChunkResult.Waiting -> {
-            appendText("⏳ ${result.message}")
-        }
-        is AiChunkResult.Error -> {
-            appendText("❌ Error: ${result.message}")
         }
     }
 }

@@ -118,10 +118,27 @@ fun HistoryDetailScreen(documentId: Int, viewModel: StudyViewModel, onBack: () -
                     items(summaries) { summary ->
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                RichTextView(
-                                    markdown = summary.summaryText,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 500.dp)
-                                )
+                                val parsedSummary = try {
+                                    com.google.gson.Gson().fromJson(summary.summaryText, com.example.studyapp.data.local.SummaryResponse::class.java)
+                                } catch (e: Exception) {
+                                    null
+                                }
+
+                                if (parsedSummary != null && parsedSummary.sections.isNotEmpty()) {
+                                    Column(modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 1500.dp).wrapContentHeight()) {
+                                        parsedSummary.sections.forEach { section ->
+                                            Text(section.title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            RichTextView(markdown = section.content, modifier = Modifier.heightIn(min = 100.dp, max = 1000.dp).wrapContentHeight())
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                        }
+                                    }
+                                } else {
+                                    RichTextView(
+                                        markdown = summary.summaryText,
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 500.dp)
+                                    )
+                                }
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Button(
                                     onClick = {

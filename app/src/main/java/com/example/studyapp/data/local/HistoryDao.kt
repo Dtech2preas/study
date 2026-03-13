@@ -27,6 +27,9 @@ interface HistoryDao {
     @Query("SELECT * FROM summary_history WHERE documentId = :documentId ORDER BY timestamp DESC")
     fun getSummariesForDocument(documentId: Int): Flow<List<SummaryHistory>>
 
+    @Query("SELECT * FROM summary_history WHERE documentId = :documentId ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLatestSummaryForDocument(documentId: Int): SummaryHistory?
+
     @Query("DELETE FROM summary_history WHERE id = :id")
     suspend fun deleteSummaryHistory(id: Int)
 

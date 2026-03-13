@@ -31,6 +31,7 @@ class StudyRepository(
 
     suspend fun insertSummaryHistory(summary: SummaryHistory): Long = historyDao.insertSummaryHistory(summary)
     fun getSummariesForDocument(documentId: Int): Flow<List<SummaryHistory>> = historyDao.getSummariesForDocument(documentId)
+    suspend fun getLatestSummaryForDocument(documentId: Int): SummaryHistory? = historyDao.getLatestSummaryForDocument(documentId)
     suspend fun deleteSummaryHistory(id: Int) = historyDao.deleteSummaryHistory(id)
 
     suspend fun insertQuizHistory(quiz: QuizHistory): Long = historyDao.insertQuizHistory(quiz)

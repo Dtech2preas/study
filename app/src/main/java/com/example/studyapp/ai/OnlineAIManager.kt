@@ -79,16 +79,25 @@ class OnlineAIManager(context: Context) {
 
         val chunks = chunkText(text)
 
+        val allSections = mutableListOf<com.example.studyapp.data.local.SummarySection>()
+
         for ((index, chunk) in chunks.withIndex()) {
             val prompt = """
-                Act as an expert tutor. I need you to explain the following text (Part ${index + 1} of ${chunks.size}) so that I can deeply understand the concepts, rather than just giving a short summary.
+                Act as an expert tutor. I need you to summarize and explain the following text (Part ${index + 1} of ${chunks.size}) so that users get a better, easier to remember understanding.
+                Only use examples where applicable and necessary (e.g. main sentence or statement or definition).
+                DO NOT generate code blocks or math formulas UNLESS the text explicitly deals with programming, mathematics, or equations. For subjects like history or literature, rely entirely on clear prose.
 
-                Please structure your response as follows:
-                1. **Brief Overview**: A short summary of the main idea.
-                2. **Core Concepts Explained**: Break down the most important points in an easy-to-understand way.
-                3. **Practical Examples**: Where necessary, provide examples to illustrate the concepts.
-                   - If the text involves math formulas, format them beautifully using LaTeX wrapped in double dollar signs or single dollar sign delimiters.
-                   - If the text involves programming, provide uniquely formatted, visually appealing code blocks (with syntax highlighting languages specified, like ```python).
+                You MUST return the response as a pure JSON object, without any markdown formatting or code blocks like ```json.
+                The JSON must follow this exact structure:
+                {
+                  "sections": [
+                    {
+                      "title": "A short, descriptive title for the section",
+                      "content": "The detailed explanation/summary for this specific topic"
+                    }
+                  ]
+                }
+                Provide as many sections as needed to cover the text accurately.
 
                 Here is the text:
                 $chunk
@@ -99,18 +108,36 @@ class OnlineAIManager(context: Context) {
                     authHeader = "Bearer $apiKey",
                     request = GroqRequest(
                         messages = listOf(
-                            GroqMessage(role = "system", content = "You are an expert tutor that explains concepts clearly and provides practical examples, formatting math with LaTeX and code with markdown codeblocks."),
+                            GroqMessage(role = "system", content = "You are an expert tutor that explains concepts clearly and concisely, prioritizing ease of remembering. You always respond in raw JSON format. You only use code blocks or math formulas if the topic strictly requires it."),
                             GroqMessage(role = "user", content = prompt)
                         )
                     )
                 )
 
                 val content = response.choices.firstOrNull()?.message?.content
-                    ?: "No content generated."
 
-                emit(AiChunkResult.Success(partNumber = index + 1, totalParts = chunks.size, text = content))
+                if (content != null) {
+                    try {
+                        var cleanJson = content.replace("```json", "").replace("```", "").trim()
+                        val startIndex = cleanJson.indexOf("{")
+                        val endIndex = cleanJson.lastIndexOf("}")
+                        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+                            cleanJson = cleanJson.substring(startIndex, endIndex + 1)
+                        }
 
-                // If this is not the last chunk, wait 1 minute to respect rate limits
+                        val partialSummary = com.google.gson.Gson().fromJson(cleanJson, com.example.studyapp.data.local.SummaryResponse::class.java)
+                        allSections.addAll(partialSummary.sections)
+                    } catch (e: Exception) {
+                         emit(AiChunkResult.Error("Error parsing summary JSON for part ${index + 1}: ${e.localizedMessage}"))
+                         return@flow
+                    }
+                }
+
+                // Emit progress
+                val currentJson = com.google.gson.Gson().toJson(com.example.studyapp.data.local.SummaryResponse(allSections))
+                emit(AiChunkResult.Success(partNumber = index + 1, totalParts = chunks.size, text = currentJson))
+
+                // Wait 1 minute between chunks
                 if (index < chunks.size - 1) {
                     emit(AiChunkResult.Waiting("Waiting 1 minute for rate limit (Part ${index + 2})..."))
                     delay(60_000L) // 60 seconds
@@ -140,6 +167,34 @@ class OnlineAIManager(context: Context) {
             response.choices.firstOrNull()?.message?.content?.trim()?.removeSurrounding("\"") ?: "Untitled Document"
         } catch (e: Exception) {
             "Untitled Document"
+        }
+    }
+
+    suspend fun explainBetter(section: com.example.studyapp.data.local.SummarySection): String {
+        val apiKey = settingsPreferences.getApiKey()
+        if (apiKey.isNullOrBlank()) return section.content
+
+        val prompt = """
+            I need you to explain this specific section better. Expand on the concepts and provide a clearer explanation.
+            Do not use code blocks or math formulas UNLESS it explicitly involves programming or equations.
+
+            Title: ${section.title}
+            Current Content: ${section.content}
+        """.trimIndent()
+
+        return try {
+            val response = apiService.createChatCompletion(
+                authHeader = "Bearer $apiKey",
+                request = GroqRequest(
+                    messages = listOf(
+                        GroqMessage(role = "system", content = "You are an expert tutor expanding on a specific topic. Respond with plain markdown text only, focusing on clear prose."),
+                        GroqMessage(role = "user", content = prompt)
+                    )
+                )
+            )
+            response.choices.firstOrNull()?.message?.content?.trim() ?: section.content
+        } catch (e: Exception) {
+            section.content
         }
     }
 
@@ -200,7 +255,17 @@ class OnlineAIManager(context: Context) {
 
                 if (content != null) {
                      try {
-                        var cleanJson = content.replace("```json", "").replace("```", "").trim()
+                        var cleanJson = content.trim()
+                        if (cleanJson.startsWith("```json")) {
+                            cleanJson = cleanJson.removePrefix("```json")
+                        }
+                        if (cleanJson.startsWith("```")) {
+                            cleanJson = cleanJson.removePrefix("```")
+                        }
+                        if (cleanJson.endsWith("```")) {
+                            cleanJson = cleanJson.removeSuffix("```")
+                        }
+                        cleanJson = cleanJson.trim()
 
                         // Fallback: extract the JSON object by finding first { and last }
                         val startIndex = cleanJson.indexOf("{")
