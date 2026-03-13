@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.sp
 import com.example.studyapp.ai.AiChunkResult
 import com.example.studyapp.ai.OnlineAIManager
 import com.example.studyapp.utils.DocumentParser
-import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -85,7 +84,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-        Divider()
+        HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
 
         // Document Section
@@ -218,7 +217,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
                                 Text("Full Screen")
                             }
                         }
-                        MarkdownText(markdown = aiOutput!!)
+                        RichTextView(markdown = aiOutput!!)
                     }
                 }
             }
@@ -247,10 +246,10 @@ fun StudyScreen(viewModel: StudyViewModel) {
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Divider()
+                    HorizontalDivider()
                     Spacer(modifier = Modifier.height(16.dp))
-                    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                        MarkdownText(markdown = aiOutput!!)
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        RichTextView(markdown = aiOutput!!)
                     }
                 }
             }

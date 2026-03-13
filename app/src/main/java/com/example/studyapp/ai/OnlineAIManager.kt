@@ -80,14 +80,26 @@ class OnlineAIManager(context: Context) {
         val chunks = chunkText(text)
 
         for ((index, chunk) in chunks.withIndex()) {
-            val prompt = "Summarize the following text (Part ${index + 1} of ${chunks.size}):\n\n$chunk"
+            val prompt = """
+                Act as an expert tutor. I need you to explain the following text (Part ${index + 1} of ${chunks.size}) so that I can deeply understand the concepts, rather than just giving a short summary.
+
+                Please structure your response as follows:
+                1. **Brief Overview**: A short summary of the main idea.
+                2. **Core Concepts Explained**: Break down the most important points in an easy-to-understand way.
+                3. **Practical Examples**: Where necessary, provide examples to illustrate the concepts.
+                   - If the text involves math formulas, format them beautifully using LaTeX wrapped in double dollar signs or single dollar sign delimiters.
+                   - If the text involves programming, provide uniquely formatted, visually appealing code blocks (with syntax highlighting languages specified, like ```python).
+
+                Here is the text:
+                $chunk
+            """.trimIndent()
 
             try {
                 val response = apiService.createChatCompletion(
                     authHeader = "Bearer $apiKey",
                     request = GroqRequest(
                         messages = listOf(
-                            GroqMessage(role = "system", content = "You are a helpful study assistant."),
+                            GroqMessage(role = "system", content = "You are an expert tutor that explains concepts clearly and provides practical examples, formatting math with LaTeX and code with markdown codeblocks."),
                             GroqMessage(role = "user", content = prompt)
                         )
                     )
@@ -143,8 +155,18 @@ class OnlineAIManager(context: Context) {
         var finalTitle = "Generated Quiz"
 
         for ((index, chunk) in chunks.withIndex()) {
+            val chunkLength = chunk.length
+            val numQuestions = when {
+                chunkLength > 15000 -> 50
+                chunkLength > 8000 -> 30
+                else -> 15
+            }
+
             val prompt = """
-                Generate a multiple choice quiz based on the following text (Part ${index + 1} of ${chunks.size}):
+                Generate a multiple choice quiz based on the following text (Part ${index + 1} of ${chunks.size}).
+                Based on the length of the text, please generate approximately $numQuestions questions.
+
+                Text to base the quiz on:
                 $chunk
 
                 You MUST return the response as a pure JSON object, without any markdown formatting or code blocks like ```json.
@@ -168,7 +190,7 @@ class OnlineAIManager(context: Context) {
                     authHeader = "Bearer $apiKey",
                     request = GroqRequest(
                         messages = listOf(
-                            GroqMessage(role = "system", content = "You are a helpful study assistant that creates engaging quizzes. You always respond in raw JSON format."),
+                            GroqMessage(role = "system", content = "You are a helpful study assistant that creates comprehensive and engaging quizzes with a dynamic number of questions based on text length. You always respond in raw JSON format."),
                             GroqMessage(role = "user", content = prompt)
                         )
                     )

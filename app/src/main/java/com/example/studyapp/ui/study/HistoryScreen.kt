@@ -118,7 +118,10 @@ fun HistoryDetailScreen(documentId: Int, viewModel: StudyViewModel, onBack: () -
                     items(summaries) { summary ->
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                dev.jeziellago.compose.markdowntext.MarkdownText(markdown = summary.summaryText)
+                                RichTextView(
+                                    markdown = summary.summaryText,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 500.dp)
+                                )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Button(
                                     onClick = {
