@@ -90,9 +90,18 @@ fun StudyScreen(viewModel: StudyViewModel) {
 
         // Document Section
         Text("AI Assistant", fontSize = 24.sp, style = MaterialTheme.typography.titleLarge)
-        Text("Upload a .txt or .pdf file to summarize or generate quizzes.")
+        Text("Upload a document (.txt, .pdf, .docx, .pptx, etc) to summarize or generate quizzes.")
 
-        Button(onClick = { filePickerLauncher.launch(arrayOf("application/pdf", "text/plain")) }) {
+        Button(onClick = { filePickerLauncher.launch(arrayOf(
+            "application/pdf",
+            "text/plain",
+            "application/msword", // .doc
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+            "application/vnd.ms-excel", // .xls
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+            "application/vnd.ms-powerpoint", // .ppt
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation" // .pptx
+        )) }) {
             Text("Upload Document")
         }
 
@@ -102,15 +111,37 @@ fun StudyScreen(viewModel: StudyViewModel) {
         } else if (parsedText != null) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                shape = MaterialTheme.shapes.large
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Document: $documentTitle", style = MaterialTheme.typography.titleMedium)
-                    Text("${parsedText!!.length} characters", style = MaterialTheme.typography.bodySmall)
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "📄 Document Loaded",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        documentTitle,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                    Text("${parsedText!!.length} characters extracted", style = MaterialTheme.typography.bodySmall)
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Button(
+                            modifier = Modifier.weight(1f),
                             onClick = {
                                 aiOutput = ""
                                 showQuiz = false
@@ -131,9 +162,10 @@ fun StudyScreen(viewModel: StudyViewModel) {
                             },
                             enabled = !isAiProcessing
                         ) {
-                            Text("Summarize")
+                            Text("📝 Summarize")
                         }
                         Button(
+                            modifier = Modifier.weight(1f),
                             onClick = {
                                 aiOutput = ""
                                 showQuiz = false
@@ -155,7 +187,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
                             },
                             enabled = !isAiProcessing
                         ) {
-                            Text("Generate Quiz")
+                            Text("🧠 Quiz")
                         }
                     }
                 }
@@ -194,21 +226,29 @@ fun StudyScreen(viewModel: StudyViewModel) {
     }
 
     if (isFullScreenSummary && !aiOutput.isNullOrEmpty() && !showQuiz) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = { isFullScreenSummary = false }) {
+        // Overlay a full-screen surface that ignores standard dialog margins
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { isFullScreenSummary = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
             Surface(
-                modifier = Modifier.fillMaxSize().padding(16.dp),
-                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background
             ) {
                 Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Text("Summary Document", style = MaterialTheme.typography.titleLarge)
                         IconButton(onClick = { isFullScreenSummary = false }) {
-                            Text("X", style = MaterialTheme.typography.titleLarge)
+                            Text("❌", style = MaterialTheme.typography.titleLarge)
                         }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Divider()
+                    Spacer(modifier = Modifier.height(16.dp))
                     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                         MarkdownText(markdown = aiOutput!!)
                     }
