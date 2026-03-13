@@ -178,7 +178,15 @@ class OnlineAIManager(context: Context) {
 
                 if (content != null) {
                      try {
-                        val cleanJson = content.replace("```json", "").replace("```", "").trim()
+                        var cleanJson = content.replace("```json", "").replace("```", "").trim()
+
+                        // Fallback: extract the JSON object by finding first { and last }
+                        val startIndex = cleanJson.indexOf("{")
+                        val endIndex = cleanJson.lastIndexOf("}")
+                        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+                            cleanJson = cleanJson.substring(startIndex, endIndex + 1)
+                        }
+
                         val partialQuiz = com.google.gson.Gson().fromJson(cleanJson, com.example.studyapp.data.local.Quiz::class.java)
                         if (index == 0 && partialQuiz.title.isNotBlank()) {
                             finalTitle = partialQuiz.title

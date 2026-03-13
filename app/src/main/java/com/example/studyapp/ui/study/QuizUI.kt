@@ -18,7 +18,15 @@ fun InteractiveQuizView(quizJson: String) {
 
     LaunchedEffect(quizJson) {
         try {
-            val cleanJson = quizJson.replace("```json", "").replace("```", "").trim()
+            var cleanJson = quizJson.replace("```json", "").replace("```", "").trim()
+
+            // Fallback JSON extraction logic
+            val startIndex = cleanJson.indexOf("{")
+            val endIndex = cleanJson.lastIndexOf("}")
+            if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+                cleanJson = cleanJson.substring(startIndex, endIndex + 1)
+            }
+
             quiz = Gson().fromJson(cleanJson, Quiz::class.java)
         } catch (e: Exception) {
             parseError = "Failed to parse quiz: ${e.message}"
@@ -38,35 +46,73 @@ fun InteractiveQuizView(quizJson: String) {
     var showResults by remember { mutableStateOf(false) }
     val selectedAnswers = remember { mutableStateMapOf<Int, Int>() }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-        Text(text = quiz!!.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 16.dp))
+    Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+        Text(
+            text = "🧠 ${quiz!!.title}",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
 
         if (!showResults) {
+            val progress = selectedAnswers.size.toFloat() / quiz!!.questions.size.toFloat()
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier.fillMaxWidth().height(12.dp).padding(bottom = 16.dp),
+                color = MaterialTheme.colorScheme.secondary,
+                trackColor = MaterialTheme.colorScheme.secondaryContainer
+            )
+            Text(
+                text = "${selectedAnswers.size} of ${quiz!!.questions.size} answered",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(bottom = 16.dp).align(Alignment.End)
+            )
+
             quiz!!.questions.forEachIndexed { index, question ->
-                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = "${index + 1}. ${question.questionText}", style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Q${index + 1}: ${question.questionText}",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         question.options.forEachIndexed { optionIndex, optionText ->
                             val isSelected = selectedAnswers[index] == optionIndex
-                            Row(
+                            val optionBgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                            val optionTextColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+
+                            Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .padding(vertical = 6.dp)
                                     .selectable(
                                         selected = isSelected,
                                         onClick = { selectedAnswers[index] = optionIndex },
                                         role = Role.RadioButton
-                                    )
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    ),
+                                shape = MaterialTheme.shapes.medium,
+                                color = optionBgColor,
+                                tonalElevation = if (isSelected) 4.dp else 0.dp
                             ) {
-                                RadioButton(
-                                    selected = isSelected,
-                                    onClick = null // handled by row
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = optionText, style = MaterialTheme.typography.bodyLarge)
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = isSelected,
+                                        onClick = null,
+                                        colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(text = optionText, style = MaterialTheme.typography.bodyLarge, color = optionTextColor)
+                                }
                             }
                         }
                     }
@@ -75,10 +121,11 @@ fun InteractiveQuizView(quizJson: String) {
 
             Button(
                 onClick = { showResults = true },
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                enabled = selectedAnswers.size == quiz!!.questions.size
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp).height(56.dp),
+                enabled = selectedAnswers.size == quiz!!.questions.size,
+                shape = MaterialTheme.shapes.large
             ) {
-                Text("Submit Quiz")
+                Text("Submit Quiz & See Results", style = MaterialTheme.typography.titleMedium)
             }
         } else {
             // Results View
