@@ -89,7 +89,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
 
         // Document Section
         Text("AI Assistant", fontSize = 24.sp, style = MaterialTheme.typography.titleLarge)
-        Text("Upload a document (.txt, .pdf, .docx, .pptx, etc) to summarize or generate quizzes.")
+        Text("Upload a document (.txt, .pdf, .docx, .pptx, etc) to explain or generate quizzes.")
 
         Button(onClick = { filePickerLauncher.launch(arrayOf(
             "application/pdf",
@@ -155,13 +155,13 @@ fun StudyScreen(viewModel: StudyViewModel) {
                                     // Save history
                                     aiOutput?.let { summary ->
                                         viewModel.saveDocumentWithSummary(documentTitle, parsedText!!, summary)
-                                        Toast.makeText(context, "Summary saved to History", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Explanation saved to History", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
                             enabled = !isAiProcessing
                         ) {
-                            Text("📝 Summarize")
+                            Text("📝 Explain")
                         }
                         Button(
                             modifier = Modifier.weight(1f),
@@ -240,7 +240,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Summary Document", style = MaterialTheme.typography.titleLarge)
+                        Text("Explanation Document", style = MaterialTheme.typography.titleLarge)
                         IconButton(onClick = { isFullScreenSummary = false }) {
                             Text("❌", style = MaterialTheme.typography.titleLarge)
                         }

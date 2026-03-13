@@ -17,9 +17,9 @@ import java.util.concurrent.TimeUnit
 class OnlineAIManager(context: Context) {
     private val settingsPreferences = SettingsPreferences(context)
 
-    // We target roughly ~20,000 characters per chunk, estimating 1 token ~ 4 chars
-    // to keep it under 5800 tokens. (20,000 / 4 = 5,000 tokens)
-    private val MAX_CHARS_PER_CHUNK = 20000
+    // We target roughly ~8,000 characters per chunk, estimating 1 token ~ 4 chars
+    // to force more parts for detailed explanations per section.
+    private val MAX_CHARS_PER_CHUNK = 8000
 
     private val apiService: GroqApiService by lazy {
         val logging = HttpLoggingInterceptor().apply {
@@ -81,16 +81,17 @@ class OnlineAIManager(context: Context) {
 
         for ((index, chunk) in chunks.withIndex()) {
             val prompt = """
-                Act as an expert tutor. I need you to explain the following text (Part ${index + 1} of ${chunks.size}) so that I can deeply understand the concepts, rather than just giving a short summary.
+                Act as an expert tutor. I need you to comprehensively explain the following text (Part ${index + 1} of ${chunks.size}) so that I can deeply understand the concepts.
+                Do not just provide a high-level summary. You must touch on each section and explain the content in a way that the user can understand better.
 
-                Please structure your response as follows:
-                1. **Brief Overview**: A short summary of the main idea.
-                2. **Core Concepts Explained**: Break down the most important points in an easy-to-understand way.
+                Please structure your detailed explanation as follows:
+                1. **Detailed Overview**: Provide a thorough explanation of what this specific section covers.
+                2. **Core Concepts Explained**: Break down each important point and topic from the text in an easy-to-understand, detailed way.
                 3. **Practical Examples**: Where necessary, provide examples to illustrate the concepts.
                    - If the text involves math formulas, format them beautifully using LaTeX wrapped in double dollar signs or single dollar sign delimiters.
                    - If the text involves programming, provide uniquely formatted, visually appealing code blocks (with syntax highlighting languages specified, like ```python).
 
-                Here is the text:
+                Here is the text to explain:
                 $chunk
             """.trimIndent()
 
