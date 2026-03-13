@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.example.studyapp.ai.AiChunkResult
 import com.example.studyapp.ai.OnlineAIManager
 import com.example.studyapp.utils.DocumentParser
+import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -29,9 +30,12 @@ fun StudyScreen(viewModel: StudyViewModel) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var parsedText by remember { mutableStateOf<String?>(null) }
+    var documentTitle by remember { mutableStateOf("Untitled Document") }
     var isLoading by remember { mutableStateOf(false) }
     var aiOutput by remember { mutableStateOf<String?>(null) }
     var isAiProcessing by remember { mutableStateOf(false) }
+    var showQuiz by remember { mutableStateOf(false) }
+    var isFullScreenSummary by remember { mutableStateOf(false) }
 
     val onlineAIManager = remember { OnlineAIManager(context) }
 
@@ -46,10 +50,12 @@ fun StudyScreen(viewModel: StudyViewModel) {
                         DocumentParser.extractTextFromUri(context, it)
                     }
                     parsedText = text
-                    isLoading = false
-                    if (text == null || text.isBlank()) {
+                    if (text != null && text.isNotBlank()) {
+                        documentTitle = onlineAIManager.generateTitle(text)
+                    } else {
                         Toast.makeText(context, "Failed to extract text or file is empty", Toast.LENGTH_SHORT).show()
                     }
+                    isLoading = false
                 }
             }
         }
@@ -92,64 +98,121 @@ fun StudyScreen(viewModel: StudyViewModel) {
 
         if (isLoading) {
             CircularProgressIndicator()
-            Text("Parsing document...")
+            Text("Processing document...")
         } else if (parsedText != null) {
-            Text("Document Parsed (${parsedText!!.length} characters)", style = MaterialTheme.typography.labelMedium)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Document: $documentTitle", style = MaterialTheme.typography.titleMedium)
+                    Text("${parsedText!!.length} characters", style = MaterialTheme.typography.bodySmall)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(
-                    onClick = {
-                        aiOutput = ""
-                        isAiProcessing = true
-                        coroutineScope.launch {
-                            onlineAIManager.generateSummaryStream(parsedText!!).collect { result ->
-                                handleAiResult(result) { newText ->
-                                    aiOutput = (aiOutput ?: "") + newText + "\n\n"
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Button(
+                            onClick = {
+                                aiOutput = ""
+                                showQuiz = false
+                                isAiProcessing = true
+                                coroutineScope.launch {
+                                    onlineAIManager.generateSummaryStream(parsedText!!).collect { result ->
+                                        handleAiResult(result) { newText ->
+                                            aiOutput = (aiOutput ?: "") + newText + "\n\n"
+                                        }
+                                    }
+                                    isAiProcessing = false
+                                    // Save history
+                                    aiOutput?.let { summary ->
+                                        viewModel.saveDocumentWithSummary(documentTitle, parsedText!!, summary)
+                                        Toast.makeText(context, "Summary saved to History", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
-                            }
-                            isAiProcessing = false
+                            },
+                            enabled = !isAiProcessing
+                        ) {
+                            Text("Summarize")
                         }
-                    },
-                    enabled = !isAiProcessing
-                ) {
-                    Text("Summarize")
-                }
-                Button(
-                    onClick = {
-                        aiOutput = ""
-                        isAiProcessing = true
-                        coroutineScope.launch {
-                            onlineAIManager.generateQuizStream(parsedText!!).collect { result ->
-                                handleAiResult(result) { newText ->
-                                    aiOutput = (aiOutput ?: "") + newText + "\n\n"
+                        Button(
+                            onClick = {
+                                aiOutput = ""
+                                showQuiz = false
+                                isAiProcessing = true
+                                coroutineScope.launch {
+                                    onlineAIManager.generateQuizStream(parsedText!!).collect { result ->
+                                        handleAiResult(result) { newText ->
+                                            aiOutput = (aiOutput ?: "") + newText
+                                        }
+                                    }
+                                    isAiProcessing = false
+                                    showQuiz = true
+                                    // Save history
+                                    aiOutput?.let { quizJson ->
+                                        viewModel.saveDocumentWithQuiz(documentTitle, parsedText!!, quizJson)
+                                        Toast.makeText(context, "Quiz saved to History", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
-                            }
-                            isAiProcessing = false
+                            },
+                            enabled = !isAiProcessing
+                        ) {
+                            Text("Generate Quiz")
                         }
-                    },
-                    enabled = !isAiProcessing
-                ) {
-                    Text("Generate Quiz")
+                    }
                 }
             }
         }
 
         if (isAiProcessing) {
             CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+            Text("AI is thinking...")
         }
 
         if (!aiOutput.isNullOrEmpty()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            if (showQuiz) {
+                InteractiveQuizView(quizJson = aiOutput!!)
+            } else {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(onClick = { isFullScreenSummary = true }) {
+                                Text("Full Screen")
+                            }
+                        }
+                        MarkdownText(markdown = aiOutput!!)
+                    }
+                }
+            }
+        }
+    }
+
+    if (isFullScreenSummary && !aiOutput.isNullOrEmpty() && !showQuiz) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { isFullScreenSummary = false }) {
+            Surface(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.background
             ) {
-                Text(
-                    text = aiOutput!!,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        IconButton(onClick = { isFullScreenSummary = false }) {
+                            Text("X", style = MaterialTheme.typography.titleLarge)
+                        }
+                    }
+                    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        MarkdownText(markdown = aiOutput!!)
+                    }
+                }
             }
         }
     }

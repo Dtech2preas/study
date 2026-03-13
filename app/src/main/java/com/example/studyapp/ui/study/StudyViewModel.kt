@@ -28,16 +28,61 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     private var startTime: Long = 0L
 
+    val documentHistory = MutableStateFlow<List<com.example.studyapp.data.local.DocumentHistory>>(emptyList())
+
     init {
-        val studyDao = StudyDatabase.getDatabase(application).studySessionDao()
-        repository = StudyRepository(studyDao)
+        val db = StudyDatabase.getDatabase(application)
+        repository = StudyRepository(db.studySessionDao(), db.historyDao())
         viewModelScope.launch {
             repository.allSessions.collect { sessions ->
                 allSessions.value = sessions
             }
         }
+        viewModelScope.launch {
+            repository.getAllDocumentHistory().collect { history ->
+                documentHistory.value = history
+            }
+        }
         startTimer()
     }
+
+    // History Operations exposed to UI
+    private var currentDocumentId: Int? = null
+    private var currentOriginalText: String? = null
+
+    suspend fun saveDocumentWithSummary(title: String, originalText: String, summaryText: String) {
+        val docId = getOrCreateDocumentId(title, originalText)
+        repository.insertSummaryHistory(
+            com.example.studyapp.data.local.SummaryHistory(documentId = docId, summaryText = summaryText, timestamp = System.currentTimeMillis())
+        )
+    }
+
+    suspend fun saveDocumentWithQuiz(title: String, originalText: String, quizJson: String) {
+        val docId = getOrCreateDocumentId(title, originalText)
+        repository.insertQuizHistory(
+            com.example.studyapp.data.local.QuizHistory(documentId = docId, quizJson = quizJson, timestamp = System.currentTimeMillis())
+        )
+    }
+
+    private suspend fun getOrCreateDocumentId(title: String, originalText: String): Int {
+        if (currentDocumentId != null && currentOriginalText == originalText) {
+            return currentDocumentId!!
+        }
+        val documentId = repository.insertDocumentHistory(
+            com.example.studyapp.data.local.DocumentHistory(title = title, originalText = originalText, timestamp = System.currentTimeMillis())
+        ).toInt()
+        currentDocumentId = documentId
+        currentOriginalText = originalText
+        return documentId
+    }
+
+    suspend fun getDocumentHistoryById(id: Int) = repository.getDocumentHistoryById(id)
+
+    suspend fun deleteDocumentHistory(id: Int) = repository.deleteDocumentHistory(id)
+
+    fun getSummariesForDocument(documentId: Int) = repository.getSummariesForDocument(documentId)
+
+    fun getQuizzesForDocument(documentId: Int) = repository.getQuizzesForDocument(documentId)
 
     private fun startTimer() {
         viewModelScope.launch {
