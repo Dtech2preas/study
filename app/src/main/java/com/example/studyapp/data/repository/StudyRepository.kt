@@ -6,6 +6,7 @@ import com.example.studyapp.data.local.QuizHistory
 import com.example.studyapp.data.local.StudySession
 import com.example.studyapp.data.local.StudySessionDao
 import com.example.studyapp.data.local.SummaryHistory
+import com.example.studyapp.data.local.DailyStudyTotal
 import kotlinx.coroutines.flow.Flow
 
 class StudyRepository(
@@ -22,6 +23,17 @@ class StudyRepository(
     fun getTotalDurationInRange(startDate: Long, endDate: Long): Flow<Long?> {
         return studySessionDao.getTotalDurationInRange(startDate, endDate)
     }
+
+    fun getLongestSessionDuration(): Flow<Long?> = studySessionDao.getLongestSessionDuration()
+
+    fun getBestStudyDay(): Flow<DailyStudyTotal?> = studySessionDao.getBestStudyDay()
+
+    fun getAverageDailyStudyTime(): Flow<Long?> = studySessionDao.getAverageDailyStudyTime()
+
+    fun getDailyTotalsInRange(startDate: Long, endDate: Long): Flow<List<DailyStudyTotal>> =
+        studySessionDao.getDailyTotalsInRange(startDate, endDate)
+
+    fun getAllStudyDatesDesc(): Flow<List<Long>> = studySessionDao.getAllStudyDatesDesc()
 
     // History Operations
     suspend fun insertDocumentHistory(document: DocumentHistory): Long = historyDao.insertDocumentHistory(document)

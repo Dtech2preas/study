@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.studyapp.data.local.StudyDatabase
 import com.example.studyapp.data.local.StudySession
 import com.example.studyapp.data.repository.StudyRepository
+import com.example.studyapp.data.local.DailyStudyTotal
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -131,7 +133,87 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getMonthDuration() = repository.getTotalDurationInRange(getStartOfMonth(), getEndOfDay())
 
+    fun getYearDuration() = repository.getTotalDurationInRange(getStartOfYear(), getEndOfDay())
+
     fun getAllTimeDuration() = repository.getTotalDurationInRange(0, Long.MAX_VALUE)
+
+    fun getLongestSession() = repository.getLongestSessionDuration()
+
+    fun getBestStudyDay() = repository.getBestStudyDay()
+
+    fun getAverageDailyStudyTime() = repository.getAverageDailyStudyTime()
+
+    fun getLast7DaysStudyTime(): StateFlow<List<DailyStudyTotal>> {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.clear(Calendar.MINUTE)
+        calendar.clear(Calendar.SECOND)
+        calendar.clear(Calendar.MILLISECOND)
+        val todayStart = calendar.timeInMillis
+        val endOfDay = todayStart + 24 * 60 * 60 * 1000 - 1
+
+        calendar.add(Calendar.DAY_OF_YEAR, -6)
+        val startOf7Days = calendar.timeInMillis
+
+        // Pre-fill the last 7 days with 0 duration so the chart doesn't skip days
+        val last7DaysTemplate = mutableListOf<DailyStudyTotal>()
+        val tempCal = Calendar.getInstance().apply { timeInMillis = startOf7Days }
+        for (i in 0 until 7) {
+            last7DaysTemplate.add(DailyStudyTotal(date = tempCal.timeInMillis, totalDuration = 0L))
+            tempCal.add(Calendar.DAY_OF_YEAR, 1)
+        }
+
+        return repository.getDailyTotalsInRange(startOf7Days, endOfDay).map { dbTotals ->
+            val mapped = last7DaysTemplate.map { templateDay ->
+                val matchingDbDay = dbTotals.find { it.date == templateDay.date }
+                matchingDbDay ?: templateDay
+            }
+            mapped
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = last7DaysTemplate
+        )
+    }
+
+    fun getCurrentStreak(): StateFlow<Int> {
+        return repository.getAllStudyDatesDesc().map { dates ->
+            if (dates.isEmpty()) return@map 0
+
+            var streak = 0
+            val calendar = Calendar.getInstance()
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.clear(Calendar.MINUTE)
+            calendar.clear(Calendar.SECOND)
+            calendar.clear(Calendar.MILLISECOND)
+
+            val today = calendar.timeInMillis
+            calendar.add(Calendar.DAY_OF_YEAR, -1)
+            val yesterday = calendar.timeInMillis
+
+            var currentDateToCheck = if (dates.contains(today)) today else {
+                if (dates.contains(yesterday)) yesterday else null
+            }
+
+            if (currentDateToCheck == null) return@map 0
+
+            for (date in dates) {
+                if (date == currentDateToCheck) {
+                    streak++
+                    val cal = Calendar.getInstance().apply { timeInMillis = currentDateToCheck!! }
+                    cal.add(Calendar.DAY_OF_YEAR, -1)
+                    currentDateToCheck = cal.timeInMillis
+                } else if (currentDateToCheck != null && date < currentDateToCheck) {
+                    break
+                }
+            }
+            streak
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0
+        )
+    }
 
     private fun getStartOfDay(): Long {
         val cal = Calendar.getInstance()
@@ -164,6 +246,16 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     private fun getStartOfMonth(): Long {
         val cal = Calendar.getInstance()
         cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.clear(Calendar.MINUTE)
+        cal.clear(Calendar.SECOND)
+        cal.clear(Calendar.MILLISECOND)
+        return cal.timeInMillis
+    }
+
+    private fun getStartOfYear(): Long {
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.DAY_OF_YEAR, 1)
         cal.set(Calendar.HOUR_OF_DAY, 0)
         cal.clear(Calendar.MINUTE)
         cal.clear(Calendar.SECOND)
