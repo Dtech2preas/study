@@ -17,10 +17,12 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.material.icons.filled.Settings
 import androidx.navigation.compose.rememberNavController
 import com.example.studyapp.ui.study.DashboardScreen
 import com.example.studyapp.ui.study.StudyScreen
 import com.example.studyapp.ui.study.StudyViewModel
+import com.example.studyapp.ui.settings.SettingsScreen
 import com.example.studyapp.ui.theme.StudyAppTheme
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 
@@ -42,7 +44,8 @@ fun MainAppScreen() {
     val navController = rememberNavController()
     val items = listOf(
         Screen.Study,
-        Screen.Dashboard
+        Screen.Dashboard,
+        Screen.Settings
     )
     val studyViewModel: StudyViewModel = viewModel()
 
@@ -52,8 +55,13 @@ fun MainAppScreen() {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
                 items.forEach { screen ->
+                    val icon = when (screen.route) {
+                        "study" -> Icons.Filled.Home
+                        "dashboard" -> Icons.Filled.Info
+                        else -> Icons.Filled.Settings
+                    }
                     NavigationBarItem(
-                        icon = { Icon(if (screen.route == "study") Icons.Filled.Home else Icons.Filled.Info, contentDescription = null) },
+                        icon = { Icon(icon, contentDescription = null) },
                         label = { Text(screen.route.replaceFirstChar { it.uppercase() }) },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
@@ -73,6 +81,7 @@ fun MainAppScreen() {
         NavHost(navController, startDestination = Screen.Study.route, Modifier.padding(innerPadding)) {
             composable(Screen.Study.route) { StudyScreen(studyViewModel) }
             composable(Screen.Dashboard.route) { DashboardScreen(studyViewModel) }
+            composable(Screen.Settings.route) { SettingsScreen() }
         }
     }
 }
@@ -80,4 +89,5 @@ fun MainAppScreen() {
 sealed class Screen(val route: String) {
     object Study : Screen("study")
     object Dashboard : Screen("dashboard")
+    object Settings : Screen("settings")
 }

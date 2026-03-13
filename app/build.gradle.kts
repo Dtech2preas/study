@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.studyapp"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -67,12 +67,20 @@ dependencies {
     implementation("androidx.room:room-ktx:$room_version")
     ksp("androidx.room:room-compiler:$room_version")
 
-    // TensorFlow Lite
-    implementation("org.tensorflow:tensorflow-lite:2.14.0")
-    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
-
     // PDFBox-Android
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+
+    // Apache POI for Word, Excel, PowerPoint
+    implementation("org.apache.poi:poi:5.2.3")
+    implementation("org.apache.poi:poi-ooxml:5.2.3")
+
+    // Retrofit & Gson for Network
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+
+    // Security Crypto for API Key
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Vico for Charts
     implementation("com.patrykandpatrick.vico:compose:1.13.0")
