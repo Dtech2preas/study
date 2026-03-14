@@ -80,12 +80,15 @@ fun HistoryDetailScreen(documentId: Int, viewModel: StudyViewModel, onBack: () -
     var document by remember { mutableStateOf<com.example.studyapp.data.local.DocumentHistory?>(null) }
     var summaries by remember { mutableStateOf(emptyList<com.example.studyapp.data.local.SummaryHistory>()) }
     var quizzes by remember { mutableStateOf(emptyList<com.example.studyapp.data.local.QuizHistory>()) }
+    var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(documentId) {
+        isLoading = true
         document = viewModel.getDocumentHistoryById(documentId)
-    }
-    LaunchedEffect(documentId) {
-        viewModel.getSummariesForDocument(documentId).collect { summaries = it }
+        viewModel.getSummariesForDocument(documentId).collect {
+            summaries = it
+            isLoading = false
+        }
     }
     LaunchedEffect(documentId) {
         viewModel.getQuizzesForDocument(documentId).collect { quizzes = it }
@@ -94,6 +97,7 @@ fun HistoryDetailScreen(documentId: Int, viewModel: StudyViewModel, onBack: () -
     var selectedTab by remember { mutableStateOf(0) }
     var isGeneratingQuiz by remember { mutableStateOf(false) }
     var newlyGeneratedQuizJson by remember { mutableStateOf<String?>(null) }
+    var fullScreenSummaryText by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -113,14 +117,27 @@ fun HistoryDetailScreen(documentId: Int, viewModel: StudyViewModel, onBack: () -
                 Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Quizzes") })
             }
 
-            if (selectedTab == 0) {
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    DynamicWaveLoader(text = "Loading History...")
+                }
+            } else if (selectedTab == 0) {
                 LazyColumn(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     items(summaries) { summary ->
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    TextButton(onClick = { fullScreenSummaryText = summary.summaryText }) {
+                                        Text("Full Screen")
+                                    }
+                                }
+                                // Use weight/fillMaxSize constraints so it uses available space without a strict box
                                 RichTextView(
                                     markdown = summary.summaryText,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 500.dp)
+                                    modifier = Modifier.fillMaxWidth().height(400.dp)
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Button(
@@ -151,8 +168,7 @@ fun HistoryDetailScreen(documentId: Int, viewModel: StudyViewModel, onBack: () -
                 LazyColumn(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     if (isGeneratingQuiz) {
                         item {
-                            CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-                            Text("Generating new quiz...")
+                            DynamicWaveLoader(text = "Generating new quiz...")
                         }
                     } else if (newlyGeneratedQuizJson != null && newlyGeneratedQuizJson!!.isNotBlank()) {
                         item {
@@ -190,6 +206,37 @@ fun HistoryDetailScreen(documentId: Int, viewModel: StudyViewModel, onBack: () -
                                InteractiveQuizView(quiz.quizJson)
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    if (fullScreenSummaryText != null) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { fullScreenSummaryText = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Explanation Document", style = MaterialTheme.typography.titleLarge)
+                        IconButton(onClick = { fullScreenSummaryText = null }) {
+                            Text("❌", style = MaterialTheme.typography.titleLarge)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        RichTextView(markdown = fullScreenSummaryText!!)
                     }
                 }
             }
