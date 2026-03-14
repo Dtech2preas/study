@@ -18,7 +18,7 @@ import kotlinx.coroutines.delay
 import java.util.Calendar
 
 class StudyViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository: StudyRepository
+    val repository: StudyRepository
 
     val allSessions = MutableStateFlow<List<StudySession>>(emptyList())
 
@@ -98,6 +98,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleStudying() {
+        val prefs = com.example.studyapp.data.preferences.SettingsPreferences(getApplication())
         if (_isStudying.value) {
             // Stop studying
             val endTime = System.currentTimeMillis()
@@ -119,11 +120,13 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
                 repository.insertSession(session)
             }
             _isStudying.value = false
+            prefs.setStudying(false)
             _elapsedTimeSeconds.value = 0L
         } else {
             // Start studying
             startTime = System.currentTimeMillis()
             _isStudying.value = true
+            prefs.setStudying(true)
         }
     }
 
