@@ -48,4 +48,22 @@ class StudyRepository(
     suspend fun insertQuizHistory(quiz: QuizHistory): Long = historyDao.insertQuizHistory(quiz)
     fun getQuizzesForDocument(documentId: Int): Flow<List<QuizHistory>> = historyDao.getQuizzesForDocument(documentId)
     suspend fun deleteQuizHistory(id: Int) = historyDao.deleteQuizHistory(id)
+
+    suspend fun getTodayStudyDurationDirectly(): Long {
+        val todayStart = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val todayEnd = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 23)
+            set(java.util.Calendar.MINUTE, 59)
+            set(java.util.Calendar.SECOND, 59)
+            set(java.util.Calendar.MILLISECOND, 999)
+        }.timeInMillis
+
+        return studySessionDao.getTotalDurationInRangeDirectly(todayStart, todayEnd) ?: 0L
+    }
 }
