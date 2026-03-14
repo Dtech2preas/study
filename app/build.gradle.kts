@@ -49,6 +49,16 @@ android {
 }
 
 dependencies {
+
+    // Google ML Kit for Text Recognition
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+
+    // Accompanist for Permissions
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+
+    // Coil for Image Loading (Compose)
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
     implementation("androidx.activity:activity-compose:1.8.0")
@@ -97,4 +107,8 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 }
