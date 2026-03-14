@@ -19,7 +19,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Search
 import androidx.navigation.compose.rememberNavController
+import com.example.studyapp.ui.study.AnswersScreen
 import com.example.studyapp.ui.study.DashboardScreen
 import com.example.studyapp.ui.study.StudyScreen
 import com.example.studyapp.ui.study.StudyViewModel
@@ -46,6 +48,7 @@ fun MainAppScreen() {
     val items = listOf(
         Screen.Study,
         Screen.Dashboard,
+        Screen.Answers,
         Screen.History,
         Screen.Settings
     )
@@ -60,6 +63,7 @@ fun MainAppScreen() {
                     val icon = when (screen.route) {
                         "study" -> Icons.Filled.Home
                         "dashboard" -> Icons.Filled.Info
+                        "answers" -> Icons.Filled.Search
                         "history" -> Icons.Filled.List
                         else -> Icons.Filled.Settings
                     }
@@ -84,6 +88,7 @@ fun MainAppScreen() {
         NavHost(navController, startDestination = Screen.Study.route, Modifier.padding(innerPadding)) {
             composable(Screen.Study.route) { StudyScreen(studyViewModel) }
             composable(Screen.Dashboard.route) { DashboardScreen(studyViewModel) }
+            composable(Screen.Answers.route) { AnswersScreen(studyViewModel) }
             composable(Screen.History.route) { com.example.studyapp.ui.study.HistoryScreen(studyViewModel) }
             composable(Screen.Settings.route) { SettingsScreen() }
         }
@@ -93,6 +98,7 @@ fun MainAppScreen() {
 sealed class Screen(val route: String) {
     object Study : Screen("study")
     object Dashboard : Screen("dashboard")
+    object Answers : Screen("answers")
     object History : Screen("history")
     object Settings : Screen("settings")
 }
