@@ -125,27 +125,6 @@ class OnlineAIManager(context: Context) {
         }
     }
 
-    suspend fun generateAnswerForQuestion(questionText: String): String {
-        val apiKey = settingsPreferences.getApiKey()
-        if (apiKey.isNullOrBlank()) return "API Key is required to get an answer. Please set it in Settings."
-
-        return try {
-            val response = apiService.createChatCompletion(
-                "Bearer $apiKey",
-                GroqRequest(
-                    model = "llama-3.1-8b-instant",
-                    messages = listOf(
-                        GroqMessage(role = "system", content = "You are a helpful expert tutor. A user has provided text extracted from images of a question or assignment. First, state the question clearly if it can be determined. Then, provide a clear, accurate, step-by-step answer or detailed explanation for the question."),
-                        GroqMessage(role = "user", content = questionText)
-                    )
-                )
-            )
-            response.choices.firstOrNull()?.message?.content ?: "Could not generate an answer."
-        } catch (e: Exception) {
-            "Error generating answer: ${e.localizedMessage}"
-        }
-    }
-
     suspend fun generateTitle(text: String): String {
         val apiKey = settingsPreferences.getApiKey()
         if (apiKey.isNullOrBlank()) return "Untitled Document"
