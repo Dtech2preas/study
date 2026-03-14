@@ -33,6 +33,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
     var isLoading by remember { mutableStateOf(false) }
     var aiOutput by remember { mutableStateOf<String?>(null) }
     var isAiProcessing by remember { mutableStateOf(false) }
+    var aiWaitMessage by remember { mutableStateOf<String?>(null) }
     var showQuiz by remember { mutableStateOf(false) }
     var isFullScreenSummary by remember { mutableStateOf(false) }
     var showQuizOptionsDialog by remember { mutableStateOf(false) }
@@ -145,13 +146,20 @@ fun StudyScreen(viewModel: StudyViewModel) {
                                 aiOutput = ""
                                 showQuiz = false
                                 isAiProcessing = true
+                                aiWaitMessage = null
                                 coroutineScope.launch {
                                     onlineAIManager.generateSummaryStream(parsedText!!).collect { result ->
-                                        handleAiResult(result) { newText ->
-                                            aiOutput = (aiOutput ?: "") + newText + "\n\n"
+                                        if (result is AiChunkResult.Waiting) {
+                                            aiWaitMessage = result.message
+                                        } else {
+                                            aiWaitMessage = null
+                                            handleAiResult(result) { newText ->
+                                                aiOutput = (aiOutput ?: "") + newText + "\n\n"
+                                            }
                                         }
                                     }
                                     isAiProcessing = false
+                                    aiWaitMessage = null
                                     // Save history
                                     aiOutput?.let { summary ->
                                         viewModel.saveDocumentWithSummary(documentTitle, parsedText!!, summary)
@@ -230,13 +238,20 @@ fun StudyScreen(viewModel: StudyViewModel) {
                                 aiOutput = ""
                                 showQuiz = false
                                 isAiProcessing = true
+                                aiWaitMessage = null
                                 coroutineScope.launch {
                                     onlineAIManager.generateQuizStream(parsedText!!, numQuestions).collect { result ->
-                                        handleAiResult(result) { newText ->
-                                            aiOutput = (aiOutput ?: "") + newText
+                                        if (result is AiChunkResult.Waiting) {
+                                            aiWaitMessage = result.message
+                                        } else {
+                                            aiWaitMessage = null
+                                            handleAiResult(result) { newText ->
+                                                aiOutput = (aiOutput ?: "") + newText
+                                            }
                                         }
                                     }
                                     isAiProcessing = false
+                                    aiWaitMessage = null
                                     showQuiz = true
                                     // Save history
                                     aiOutput?.let { quizJson ->
@@ -292,6 +307,21 @@ fun StudyScreen(viewModel: StudyViewModel) {
                     }
                 }
             }
+            if (aiWaitMessage != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Text(
+                        text = "⏳ " + aiWaitMessage!!,
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
         }
     }
 }
@@ -302,7 +332,7 @@ private fun handleAiResult(result: AiChunkResult, appendText: (String) -> Unit) 
             appendText("--- Part ${result.partNumber} of ${result.totalParts} ---\n${result.text}")
         }
         is AiChunkResult.Waiting -> {
-            appendText("⏳ ${result.message}")
+            // Handled in UI
         }
         is AiChunkResult.Error -> {
             appendText("❌ Error: ${result.message}")

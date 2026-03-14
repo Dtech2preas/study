@@ -25,6 +25,13 @@ fun HistoryScreen(viewModel: StudyViewModel) {
     val coroutineScope = rememberCoroutineScope()
 
     var selectedDocumentId by remember { mutableStateOf<Int?>(null) }
+    var isLoadingInitial by remember { mutableStateOf(true) }
+
+    // Simulating a fast check to see if we just loaded empty initially, or if we actually have empty DB
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(300) // Small delay to allow initial fast emission
+        isLoadingInitial = false
+    }
 
     if (selectedDocumentId != null) {
         HistoryDetailScreen(
@@ -36,7 +43,11 @@ fun HistoryScreen(viewModel: StudyViewModel) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             Text("Document History", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 16.dp))
 
-            if (documents.isEmpty()) {
+            if (isLoadingInitial && documents.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    DynamicWaveLoader(text = "Loading History...")
+                }
+            } else if (documents.isEmpty()) {
                 Text("No history yet. Start studying!", modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 32.dp))
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -82,20 +93,33 @@ fun HistoryDetailScreen(documentId: Int, viewModel: StudyViewModel, onBack: () -
     var quizzes by remember { mutableStateOf(emptyList<com.example.studyapp.data.local.QuizHistory>()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(documentId) {
-        isLoading = true
-        document = viewModel.getDocumentHistoryById(documentId)
-        viewModel.getSummariesForDocument(documentId).collect {
-            summaries = it
-            isLoading = false
-        }
-    }
-    LaunchedEffect(documentId) {
-        viewModel.getQuizzesForDocument(documentId).collect { quizzes = it }
-    }
-
     var selectedTab by remember { mutableStateOf(0) }
     var isGeneratingQuiz by remember { mutableStateOf(false) }
+
+    LaunchedEffect(documentId) {
+        isLoading = true
+        coroutineScope.launch {
+            document = viewModel.getDocumentHistoryById(documentId)
+        }
+        coroutineScope.launch {
+            viewModel.getSummariesForDocument(documentId).collect {
+                summaries = it
+                if (selectedTab == 0) isLoading = false
+            }
+        }
+        coroutineScope.launch {
+            viewModel.getQuizzesForDocument(documentId).collect {
+                quizzes = it
+                if (selectedTab == 1) isLoading = false
+            }
+        }
+    }
+
+    // Safety fallback to turn off loading if data arrives empty but fast
+    LaunchedEffect(selectedTab) {
+        kotlinx.coroutines.delay(500)
+        isLoading = false
+    }
     var newlyGeneratedQuizJson by remember { mutableStateOf<String?>(null) }
     var fullScreenSummaryText by remember { mutableStateOf<String?>(null) }
 

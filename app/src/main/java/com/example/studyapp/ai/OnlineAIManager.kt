@@ -82,14 +82,16 @@ class OnlineAIManager(context: Context) {
         for ((index, chunk) in chunks.withIndex()) {
             val prompt = """
                 Act as an expert tutor. I need you to comprehensively explain the following text (Part ${index + 1} of ${chunks.size}) so that I can deeply understand the concepts.
-                Do not just provide a high-level summary. You must touch on each section and explain the content in a way that the user can understand better.
+                Do not just provide a high-level summary or short response. You must provide an exhaustive, multi-faceted explanation that covers every detail of the source text. Ensure nothing important is left out and touch on all aspects of the content.
 
                 Please structure your detailed explanation as follows:
                 1. **Detailed Overview**: Provide a thorough explanation of what this specific section covers.
                 2. **Core Concepts Explained**: Break down each important point and topic from the text in an easy-to-understand, detailed way.
                 3. **Practical Examples**: Where necessary, provide examples to illustrate the concepts.
-                   - If the text involves math formulas, format them beautifully using LaTeX wrapped in double dollar signs or single dollar sign delimiters.
-                   - If the text involves programming, provide uniquely formatted, visually appealing code blocks (with syntax highlighting languages specified, like ```python).
+
+                Formatting guidelines:
+                - If the text involves math formulas, format them beautifully using LaTeX wrapped in double dollar signs or single dollar sign delimiters.
+                - IMPORTANT: ONLY format text as code (using ``` blocks) IF the source material contains actual programming code. Do not use code blocks for general formatting, emphasis, or non-technical subjects like law or history.
 
                 Here is the text to explain:
                 $chunk
@@ -100,7 +102,7 @@ class OnlineAIManager(context: Context) {
                     authHeader = "Bearer $apiKey",
                     request = GroqRequest(
                         messages = listOf(
-                            GroqMessage(role = "system", content = "You are an expert tutor that explains concepts clearly and provides practical examples, formatting math with LaTeX and code with markdown codeblocks."),
+                            GroqMessage(role = "system", content = "You are an expert tutor that explains concepts clearly and comprehensively. You provide exhaustive details and practical examples, formatting math with LaTeX. You only use markdown codeblocks for actual programming code, never for general text formatting."),
                             GroqMessage(role = "user", content = prompt)
                         )
                     )
