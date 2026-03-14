@@ -66,45 +66,61 @@ fun StudyScreen(viewModel: StudyViewModel) {
     val minutes = (elapsedTime % 3600) / 60
     val seconds = elapsedTime % 60
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Study Timer Section
-        Text(
-            text = String.format("%02d:%02d:%02d", hours, minutes, seconds),
-            fontSize = 48.sp,
-            modifier = Modifier.padding(16.dp)
-        )
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 24.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Document Section
+            Text(
+                "AI Assistant",
+                fontSize = 28.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Upload a document (.txt, .pdf, .docx, .pptx, etc) to explain or generate quizzes.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
 
-        Button(onClick = { viewModel.toggleStudying() }) {
-            Text(if (isStudying) "Stop Studying" else "Start Studying")
-        }
+            Spacer(modifier = Modifier.height(8.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
-        HorizontalDivider()
-        Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { filePickerLauncher.launch(arrayOf(
+                    "application/pdf",
+                    "text/plain",
+                    "application/msword", // .doc
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+                    "application/vnd.ms-excel", // .xls
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+                    "application/vnd.ms-powerpoint", // .ppt
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation" // .pptx
+                )) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                shape = MaterialTheme.shapes.large,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                contentPadding = PaddingValues(vertical = 16.dp)
+            ) {
+                Text(
+                    text = "Upload Document",
+                    fontSize = 18.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+            }
 
-        // Document Section
-        Text("AI Assistant", fontSize = 24.sp, style = MaterialTheme.typography.titleLarge)
-        Text("Upload a document (.txt, .pdf, .docx, .pptx, etc) to explain or generate quizzes.")
-
-        Button(onClick = { filePickerLauncher.launch(arrayOf(
-            "application/pdf",
-            "text/plain",
-            "application/msword", // .doc
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-            "application/vnd.ms-excel", // .xls
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-            "application/vnd.ms-powerpoint", // .ppt
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation" // .pptx
-        )) }) {
-            Text("Upload Document")
-        }
+            Spacer(modifier = Modifier.height(8.dp))
 
         if (isLoading) {
             DynamicWaveLoader(text = "Processing document...")
@@ -277,6 +293,41 @@ fun StudyScreen(viewModel: StudyViewModel) {
             properties = androidx.compose.ui.window.DialogProperties(),
         )
     }
+
+        // Floating Timer Pill
+        FloatingActionButton(
+            onClick = { viewModel.toggleStudying() },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(24.dp),
+            containerColor = if (isStudying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = if (isStudying) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+            shape = MaterialTheme.shapes.extraLarge,
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 12.dp,
+                pressedElevation = 16.dp
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = if (isStudying) "⏹ Stop" else "▶ Start",
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+                    fontSize = 18.sp
+                )
+                Text(
+                    text = String.format("%02d:%02d:%02d", hours, minutes, seconds),
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    fontSize = 20.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    color = if (isStudying) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    } // End of Box
 
     if (isFullScreenSummary && !aiOutput.isNullOrEmpty() && !showQuiz) {
         // Overlay a full-screen surface that ignores standard dialog margins
