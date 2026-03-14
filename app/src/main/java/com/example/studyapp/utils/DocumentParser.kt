@@ -22,9 +22,6 @@ object DocumentParser {
                 type.contains("pdf") || fileName.endsWith(".pdf", ignoreCase = true) -> {
                     extractTextFromPdf(context, uri)
                 }
-                type.contains("text") || fileName.endsWith(".txt", ignoreCase = true) -> {
-                    extractTextFromTxt(context, uri)
-                }
                 fileName.endsWith(".doc", ignoreCase = true) ||
                 fileName.endsWith(".docx", ignoreCase = true) ||
                 fileName.endsWith(".xls", ignoreCase = true) ||
@@ -36,6 +33,9 @@ object DocumentParser {
                 type.contains("vnd.ms-excel") ||
                 type.contains("vnd.ms-powerpoint") -> {
                     extractTextFromOffice(context, uri)
+                }
+                type.contains("text") || fileName.endsWith(".txt", ignoreCase = true) -> {
+                    extractTextFromTxt(context, uri)
                 }
                 else -> {
                     // Fallback
