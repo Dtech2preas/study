@@ -1,20 +1,8 @@
 package com.example.studyapp.ui.study
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
-import com.patrykandpatrick.vico.compose.chart.Chart
-import com.patrykandpatrick.vico.compose.chart.line.lineChart
-import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
-import com.patrykandpatrick.vico.core.entry.FloatEntry
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -33,194 +21,264 @@ fun DashboardScreen(viewModel: StudyViewModel) {
 
     val last7Days by viewModel.getLast7DaysStudyTime().collectAsState()
 
-    val chartEntryModelProducer = remember { ChartEntryModelProducer() }
-
-    LaunchedEffect(last7Days) {
-        if (last7Days.isNotEmpty()) {
-            val entries = last7Days.mapIndexed { index, dailyTotal ->
-                FloatEntry(x = index.toFloat(), y = dailyTotal.totalDuration / 3600f)
-            }
-            chartEntryModelProducer.setEntries(entries)
-        } else {
-            // Default empty entries so it doesn't crash if no data
-            chartEntryModelProducer.setEntries(listOf(FloatEntry(0f, 0f)))
-        }
+    // Generate JSON for chart data
+    val labels = last7Days.map {
+        val date = Date(it.date)
+        SimpleDateFormat("EEE", Locale.getDefault()).format(date)
     }
+    val data = last7Days.map { it.totalDuration / 3600f } // Convert to hours
 
-    val aiMotivation = """
-        > **⚡ SYSTEM STATUS:** OPTIMAL
-        >
-        > Neural pathways primed for learning. Current objective: *Mastery*.
-        >
-        > "The future belongs to those who learn more skills and combine them in creative ways."
-    """.trimIndent()
+    val labelsJson = labels.joinToString(prefix = "[\"", separator = "\",\"", postfix = "\"]") { it }
+    val dataJson = data.joinToString(prefix = "[", separator = ",", postfix = "]") { it.toString() }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        Text(
-            "Study Dashboard",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
 
-        // AI Motivation Card using RichTextView
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp) // Fixed height to allow scrolling within if needed, or just enough to show content
-                .padding(bottom = 24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                RichTextView(
-                    markdown = aiMotivation,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-        }
+    val htmlContent = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <style>
+                :root {
+                    --bg-color: #0D0D0D;
+                    --card-bg: #1A1A1A;
+                    --text-main: #FFFFFF;
+                    --text-muted: #A0A0A0;
+                    --accent-blue: #00E5FF;
+                    --dark-blue: #005B9F;
+                }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                    background-color: var(--bg-color);
+                    color: var(--text-main);
+                    padding: 20px;
+                    margin: 0;
+                }
+                h1 {
+                    color: var(--accent-blue);
+                    font-size: 28px;
+                    margin-bottom: 24px;
+                }
+                h2 {
+                    font-size: 20px;
+                    margin-top: 32px;
+                    margin-bottom: 16px;
+                    color: var(--text-main);
+                }
+                .card {
+                    background-color: var(--card-bg);
+                    border-radius: 12px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                    border: 1px solid #333;
+                }
+                .system-status {
+                    border-left: 4px solid var(--accent-blue);
+                }
+                .status-title {
+                    color: var(--accent-blue);
+                    font-weight: bold;
+                    margin-bottom: 8px;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+                .status-text {
+                    color: var(--text-muted);
+                    font-style: italic;
+                    line-height: 1.5;
+                }
 
-        // Vico Line Chart (Last 7 Days)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp)
-                .padding(bottom = 24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    "Last 7 Days (Hours)",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                if (last7Days.isNotEmpty()) {
-                    Chart(
-                        chart = lineChart(),
-                        chartModelProducer = chartEntryModelProducer,
-                        startAxis = rememberStartAxis(),
-                        bottomAxis = rememberBottomAxis(
-                            valueFormatter = { value, _ ->
-                                val index = value.toInt()
-                                if (index >= 0 && index < last7Days.size) {
-                                    val date = Date(last7Days[index].date)
-                                    val format = SimpleDateFormat("EEE", Locale.getDefault())
-                                    format.format(date)
-                                } else {
-                                    ""
+                .grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 16px;
+                }
+                .stat-box {
+                    background-color: var(--card-bg);
+                    border-radius: 12px;
+                    padding: 16px;
+                    border: 1px solid #333;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                }
+                .stat-label {
+                    color: var(--text-muted);
+                    font-size: 14px;
+                    margin-bottom: 8px;
+                }
+                .stat-value {
+                    color: var(--accent-blue);
+                    font-size: 24px;
+                    font-weight: bold;
+                }
+
+                .totals-row {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 12px 0;
+                    border-bottom: 1px solid #333;
+                }
+                .totals-row:last-child {
+                    border-bottom: none;
+                }
+                .totals-label {
+                    font-size: 16px;
+                }
+                .totals-val {
+                    font-size: 16px;
+                    font-weight: bold;
+                    color: var(--text-main);
+                }
+
+                #chart-container {
+                    width: 100%;
+                    height: 250px;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Study Dashboard</h1>
+
+            <div class="card system-status">
+                <div class="status-title">⚡ System Status: Optimal</div>
+                <div class="status-text">
+                    Neural pathways primed for learning. Current objective: Mastery.<br><br>
+                    "The future belongs to those who learn more skills and combine them in creative ways."
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="stat-label" style="margin-bottom: 16px;">Last 7 Days (Hours)</div>
+                <div id="chart-container">
+                    <canvas id="studyChart"></canvas>
+                </div>
+            </div>
+
+            <h2>Advanced Stats</h2>
+            <div class="grid">
+                <div class="stat-box">
+                    <div class="stat-label">Current Streak</div>
+                    <div class="stat-value">$streak Days</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Best Day</div>
+                    <div class="stat-value">${formatDurationHtml(bestStudyDay?.totalDuration ?: 0L)}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Longest Session</div>
+                    <div class="stat-value">${formatDurationHtml(longestSession ?: 0L)}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Daily Average</div>
+                    <div class="stat-value">${formatDurationHtml(averageDaily ?: 0L)}</div>
+                </div>
+            </div>
+
+            <h2>Totals</h2>
+            <div class="card">
+                <div class="totals-row">
+                    <div class="totals-label">Today</div>
+                    <div class="totals-val">${formatDurationHtml(todayDuration ?: 0L)}</div>
+                </div>
+                <div class="totals-row">
+                    <div class="totals-label">This Week</div>
+                    <div class="totals-val">${formatDurationHtml(weekDuration ?: 0L)}</div>
+                </div>
+                <div class="totals-row">
+                    <div class="totals-label">This Month</div>
+                    <div class="totals-val">${formatDurationHtml(monthDuration ?: 0L)}</div>
+                </div>
+                <div class="totals-row">
+                    <div class="totals-label">This Year</div>
+                    <div class="totals-val">${formatDurationHtml(yearDuration ?: 0L)}</div>
+                </div>
+                <div class="totals-row">
+                    <div class="totals-label">All Time</div>
+                    <div class="totals-val">${formatDurationHtml(allTimeDuration ?: 0L)}</div>
+                </div>
+            </div>
+
+            <script>
+                const ctx = document.getElementById('studyChart').getContext('2d');
+
+                // If there's no data, ensure we don't crash Chart.js
+                let labels = $labelsJson;
+                let data = $dataJson;
+
+                if (labels.length === 0 || labels[0] === "") {
+                    labels = ["No Data"];
+                    data = [0];
+                }
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Hours Studied',
+                            data: data,
+                            borderColor: '#00E5FF',
+                            backgroundColor: 'rgba(0, 229, 255, 0.1)',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#00E5FF',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: '#00E5FF',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: '#1A1A1A',
+                                titleColor: '#fff',
+                                bodyColor: '#A0A0A0',
+                                borderColor: '#333',
+                                borderWidth: 1
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false,
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: '#A0A0A0'
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    color: '#333',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: '#A0A0A0',
+                                    beginAtZero: true
                                 }
                             }
-                        )
-                    )
-                } else {
-                    Text("No data for the last 7 days yet.", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        }
+                        }
+                    }
+                });
+            </script>
+        </body>
+        </html>
+    """.trimIndent()
 
-        Text(
-            "Advanced Stats",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        // Advanced Stats Grid
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatCard(title = "Current Streak", value = "$streak Days", modifier = Modifier.weight(1f))
-            StatCard(
-                title = "Best Day",
-                value = bestStudyDay?.let { formatDuration(it.totalDuration) } ?: "0h 0m",
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatCard(
-                title = "Longest Session",
-                value = formatDuration(longestSession ?: 0L),
-                modifier = Modifier.weight(1f)
-            )
-            StatCard(
-                title = "Daily Average",
-                value = formatDuration(averageDaily ?: 0L),
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            "Totals",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                StatRow("Today", todayDuration ?: 0L)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                StatRow("This Week", weekDuration ?: 0L)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                StatRow("This Month", monthDuration ?: 0L)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                StatRow("This Year", yearDuration ?: 0L)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                StatRow("All Time", allTimeDuration ?: 0L)
-            }
-        }
-    }
+    HtmlWebView(htmlContent = htmlContent, modifier = Modifier.fillMaxSize())
 }
 
-@Composable
-fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier.height(100.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(text = title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f))
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-        }
-    }
-}
-
-fun formatDuration(seconds: Long): String {
+fun formatDurationHtml(seconds: Long): String {
     val hours = seconds / 3600
     val minutes = (seconds % 3600) / 60
     return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
-}
-
-@Composable
-fun StatRow(label: String, seconds: Long) {
-    val hours = seconds / 3600
-    val minutes = (seconds % 3600) / 60
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(text = label, fontSize = 18.sp)
-        Text(text = "${hours}h ${minutes}m", fontSize = 18.sp)
-    }
 }

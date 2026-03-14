@@ -105,8 +105,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
         }
 
         if (isLoading) {
-            CircularProgressIndicator()
-            Text("Processing document...")
+            DynamicWaveLoader(text = "Processing document...")
         } else if (parsedText != null) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -194,8 +193,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
         }
 
         if (isAiProcessing) {
-            CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-            Text("AI is thinking...")
+            DynamicWaveLoader(text = "AI is thinking...")
         }
 
         if (!aiOutput.isNullOrEmpty()) {

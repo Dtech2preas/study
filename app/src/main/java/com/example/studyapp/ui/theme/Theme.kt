@@ -15,38 +15,48 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
+// Force a dark premium look everywhere, regardless of system theme
+private val PremiumColorScheme = darkColorScheme(
+    primary = ElectricBlue,
+    onPrimary = PremiumBlack,
+    primaryContainer = DeepBlue,
+    onPrimaryContainer = TextWhite,
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    secondary = MutedBlue,
+    onSecondary = PremiumBlack,
+    secondaryContainer = SurfaceVariantBlack,
+    onSecondaryContainer = TextWhite,
+
+    tertiary = ElectricBlue,
+    onTertiary = PremiumBlack,
+
+    background = PremiumBlack,
+    onBackground = TextWhite,
+
+    surface = SurfaceBlack,
+    onSurface = TextWhite,
+    surfaceVariant = SurfaceVariantBlack,
+    onSurfaceVariant = TextGray,
+
+    error = androidx.compose.ui.graphics.Color(0xFFCF6679),
+    onError = PremiumBlack
 )
 
 @Composable
 fun StudyAppTheme(
+    // We intentionally ignore these flags to force the premium dark theme
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = PremiumColorScheme
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+            window.statusBarColor = colorScheme.background.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
         }
     }
 
