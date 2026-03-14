@@ -17,9 +17,9 @@ import java.util.concurrent.TimeUnit
 class OnlineAIManager(context: Context) {
     private val settingsPreferences = SettingsPreferences(context)
 
-    // We target roughly ~8,000 characters per chunk, estimating 1 token ~ 4 chars
+    // We target roughly ~20,000 characters per chunk, estimating 1 token ~ 4 chars
     // to force more parts for detailed explanations per section.
-    private val MAX_CHARS_PER_CHUNK = 8000
+    private val MAX_CHARS_PER_CHUNK = 20000
 
     private val apiService: GroqApiService by lazy {
         val logging = HttpLoggingInterceptor().apply {
@@ -113,8 +113,10 @@ class OnlineAIManager(context: Context) {
 
                 // If this is not the last chunk, wait 1 minute to respect rate limits
                 if (index < chunks.size - 1) {
-                    emit(AiChunkResult.Waiting("Waiting 1 minute for rate limit (Part ${index + 2})..."))
-                    delay(60_000L) // 60 seconds
+                    for (seconds in 60 downTo 1) {
+                        emit(AiChunkResult.Waiting("Waiting ${seconds}s for rate limit (Part ${index + 2})..."))
+                        delay(1_000L)
+                    }
                 }
             } catch (e: Exception) {
                 emit(AiChunkResult.Error("Error processing part ${index + 1}: ${e.localizedMessage}"))
@@ -144,7 +146,7 @@ class OnlineAIManager(context: Context) {
         }
     }
 
-    fun generateQuizStream(text: String): Flow<AiChunkResult> = flow {
+    fun generateQuizStream(text: String, totalRequestedQuestions: Int): Flow<AiChunkResult> = flow {
         val apiKey = settingsPreferences.getApiKey()
         if (apiKey.isNullOrBlank()) {
             emit(AiChunkResult.Error("API Key is missing. Please set it in Settings."))
@@ -156,16 +158,16 @@ class OnlineAIManager(context: Context) {
         var finalTitle = "Generated Quiz"
 
         for ((index, chunk) in chunks.withIndex()) {
-            val chunkLength = chunk.length
-            val numQuestions = when {
-                chunkLength > 15000 -> 50
-                chunkLength > 8000 -> 30
-                else -> 15
-            }
+            // Distribute questions roughly evenly across chunks, ensuring we hit the requested total
+            val questionsPerChunk = totalRequestedQuestions / chunks.size
+            val extraQuestions = if (index < totalRequestedQuestions % chunks.size) 1 else 0
+            val numQuestionsToAskFor = questionsPerChunk + extraQuestions
+
+            if (numQuestionsToAskFor <= 0) continue
 
             val prompt = """
                 Generate a multiple choice quiz based on the following text (Part ${index + 1} of ${chunks.size}).
-                Based on the length of the text, please generate approximately $numQuestions questions.
+                Please generate exactly $numQuestionsToAskFor questions for this part.
 
                 Text to base the quiz on:
                 $chunk
@@ -227,8 +229,10 @@ class OnlineAIManager(context: Context) {
                     val finalJson = com.google.gson.Gson().toJson(finalQuiz)
                     emit(AiChunkResult.Success(partNumber = chunks.size, totalParts = chunks.size, text = finalJson))
                 } else {
-                    emit(AiChunkResult.Waiting("Waiting 1 minute for rate limit (Part ${index + 2})..."))
-                    delay(60_000L) // 60 seconds
+                    for (seconds in 60 downTo 1) {
+                        emit(AiChunkResult.Waiting("Waiting ${seconds}s for rate limit (Part ${index + 2})..."))
+                        delay(1_000L)
+                    }
                 }
             } catch (e: Exception) {
                 emit(AiChunkResult.Error("Error processing part ${index + 1}: ${e.localizedMessage}"))

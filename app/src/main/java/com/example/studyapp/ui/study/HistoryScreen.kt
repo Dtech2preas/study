@@ -147,7 +147,7 @@ fun HistoryDetailScreen(documentId: Int, viewModel: StudyViewModel, onBack: () -
                                             newlyGeneratedQuizJson = ""
                                             selectedTab = 1 // Switch to quiz tab to show loading
                                             coroutineScope.launch {
-                                                onlineAIManager.generateQuizStream(document!!.originalText).collect { result ->
+                                                onlineAIManager.generateQuizStream(document!!.originalText, 15).collect { result ->
                                                     if (result is AiChunkResult.Success) {
                                                         newlyGeneratedQuizJson = result.text
                                                     }
