@@ -35,6 +35,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
     var isAiProcessing by remember { mutableStateOf(false) }
     var showQuiz by remember { mutableStateOf(false) }
     var isFullScreenSummary by remember { mutableStateOf(false) }
+    var showQuizOptionsDialog by remember { mutableStateOf(false) }
 
     val onlineAIManager = remember { OnlineAIManager(context) }
 
@@ -165,23 +166,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
                         Button(
                             modifier = Modifier.weight(1f),
                             onClick = {
-                                aiOutput = ""
-                                showQuiz = false
-                                isAiProcessing = true
-                                coroutineScope.launch {
-                                    onlineAIManager.generateQuizStream(parsedText!!).collect { result ->
-                                        handleAiResult(result) { newText ->
-                                            aiOutput = (aiOutput ?: "") + newText
-                                        }
-                                    }
-                                    isAiProcessing = false
-                                    showQuiz = true
-                                    // Save history
-                                    aiOutput?.let { quizJson ->
-                                        viewModel.saveDocumentWithQuiz(documentTitle, parsedText!!, quizJson)
-                                        Toast.makeText(context, "Quiz saved to History", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
+                                showQuizOptionsDialog = true
                             },
                             enabled = !isAiProcessing
                         ) {
@@ -220,6 +205,62 @@ fun StudyScreen(viewModel: StudyViewModel) {
                 }
             }
         }
+    }
+
+    if (showQuizOptionsDialog && parsedText != null) {
+        val maxQuestions = when {
+            parsedText!!.length > 30000 -> 100
+            parsedText!!.length > 15000 -> 50
+            parsedText!!.length > 8000 -> 30
+            else -> 15
+        }
+        val options = listOf(15, 30, 50, 100).filter { it <= maxQuestions || it == 15 } // Ensure at least 15 is always available
+
+        AlertDialog(
+            onDismissRequest = { showQuizOptionsDialog = false },
+            title = { Text("Generate Quiz") },
+            text = {
+                Column {
+                    Text("Select the number of questions to generate. (Max based on document length: $maxQuestions)")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    options.forEach { numQuestions ->
+                        Button(
+                            onClick = {
+                                showQuizOptionsDialog = false
+                                aiOutput = ""
+                                showQuiz = false
+                                isAiProcessing = true
+                                coroutineScope.launch {
+                                    onlineAIManager.generateQuizStream(parsedText!!, numQuestions).collect { result ->
+                                        handleAiResult(result) { newText ->
+                                            aiOutput = (aiOutput ?: "") + newText
+                                        }
+                                    }
+                                    isAiProcessing = false
+                                    showQuiz = true
+                                    // Save history
+                                    aiOutput?.let { quizJson ->
+                                        viewModel.saveDocumentWithQuiz(documentTitle, parsedText!!, quizJson)
+                                        Toast.makeText(context, "Quiz saved to History", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        ) {
+                            Text("$numQuestions Questions")
+                        }
+                    }
+                }
+            },
+            confirmButton = { },
+            dismissButton = {
+                TextButton(onClick = { showQuizOptionsDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+            icon = { Text("🧠") },
+            properties = androidx.compose.ui.window.DialogProperties(),
+        )
     }
 
     if (isFullScreenSummary && !aiOutput.isNullOrEmpty() && !showQuiz) {
