@@ -1,0 +1,177 @@
+# StudyApp - System Analysis & Documentation
+
+## 1. Comprehensive Overview
+
+### 1.1 What the App Does
+StudyApp is a native Android application built with Kotlin and Jetpack Compose. Its primary purpose is to act as an intelligent study assistant. It helps students and learners process study materials, understand complex topics, and test their knowledge. The app allows users to upload various document types (PDFs, Word documents, PowerPoint presentations, Excel sheets, and plain text files), extracts the text, and leverages AI to generate comprehensive explanations, summaries, and interactive multiple-choice quizzes. It also tracks the user's study sessions and provides a dashboard with study statistics and analytics.
+
+### 1.2 The Purpose
+The core mission of StudyApp is to transform passive reading into active learning. By breaking down large documents into manageable chunks and providing expert tutor-level explanations, it makes learning more accessible. The interactive quizzes help solidify knowledge. The built-in timer and analytics dashboard encourage consistent study habits by gamifying the learning experience with streaks and time tracking.
+
+### 1.3 System Architecture (How it Works)
+The app follows a modern Android architecture based on Model-View-ViewModel (MVVM) principles and unidirectional data flow.
+
+*   **UI Layer (Jetpack Compose):** The entire user interface is built declaratively using Jetpack Compose. Screens like `StudyScreen`, `DashboardScreen`, `HistoryScreen`, and `SettingsScreen` observe state from the `StudyViewModel`. It uses a custom dark theme with colors like `PremiumBlack`, `SurfaceBlack`, and `ElectricBlue`. For rich text and charts, it utilizes a custom Compose WebView wrapper.
+*   **Domain / State Management (ViewModel):** `StudyViewModel` acts as the bridge between the UI and the data layer. It manages UI states (like loading states, elapsed time, current streak, active documents) using `StateFlow`. It handles business logic, such as starting/stopping study timers, and interacts with the repository to save or fetch data.
+*   **Data Layer (Room Database):** Data persistence is handled entirely on-device for privacy and speed using Android's Room Database. The `StudyDatabase` contains entities for tracking `StudySession`, `DocumentHistory`, `SummaryHistory`, and `QuizHistory`. Data access is managed through DAOs (`StudySessionDao`, `HistoryDao`) and abstracted via the `StudyRepository`.
+*   **Network / AI Layer:** The app communicates with the Groq API for fast LLM inference (using models like `llama-3.1-8b-instant`). This is handled by `OnlineAIManager`, which formats prompts, handles document chunking (to avoid token limits), enforces rate limits, and parses the AI's responses (including raw JSON for quizzes). Network calls are executed via Retrofit.
+*   **Utility Layer:** Local document parsing is handled by `DocumentParser`, which leverages libraries like PDFBox and Apache POI to extract raw text from files stored on the device.
+
+---
+
+## 2. Network API Requests and AI Integration
+
+The core intelligence of the app relies on communicating with the Groq API. All network logic is centralized in the `OnlineAIManager.kt` and `GroqApiService.kt` files.
+
+### 2.1 The Setup
+*   **API Client:** The app uses Retrofit to make HTTP POST requests to the Groq API endpoint (`openai/v1/chat/completions`).
+*   **Model:** It specifically requests the `llama-3.1-8b-instant` model for high-speed inference.
+*   **Authentication:** The user provides an API key in the app's settings. This key is stored securely and attached as a `Bearer` token in the `Authorization` header of every request.
+
+### 2.2 Document Chunking and Rate Limiting
+Before making requests, large documents are processed to prevent exceeding the model's token context window.
+*   The `OnlineAIManager.chunkText` function splits large texts into chunks of up to 20,000 characters. It intelligently attempts to break chunks at spaces or newlines rather than cutting words in half.
+*   Because the app makes iterative requests for each chunk, it implements a **60-second rate limit delay** between requests (if there are multiple chunks) to prevent HTTP 429 Too Many Requests errors. This delay is visually represented in the UI via the `AiChunkResult.Waiting` state.
+
+### 2.3 Prompts and Explanations (`generateSummaryStream`)
+When a user asks to "Explain" a document, the app acts as an expert tutor.
+*   **System Prompt:** `"You are an expert tutor that explains concepts clearly and comprehensively. You provide exhaustive details and practical examples, formatting math with LaTeX. You only use markdown codeblocks for actual programming code, never for general text formatting."`
+*   **User Prompt:** The prompt explicitly asks for a structured response covering:
+    1.  **Detailed Overview**
+    2.  **Core Concepts Explained**
+    3.  **Practical Examples**
+*   **Execution:** It iterates through the text chunks, sending requests sequentially, and emitting the results via a Kotlin `Flow` back to the UI.
+
+### 2.4 Generating Quizzes (`generateQuizStream`)
+When a user requests a quiz, they select the desired number of questions (e.g., 15, 30, 50). The app dynamically divides this request across the document chunks.
+*   **System Prompt:** `"You are a helpful study assistant that creates comprehensive and engaging quizzes with a dynamic number of questions based on text length. You always respond in raw JSON format."`
+*   **User Prompt:** The prompt asks for exactly X questions based on the current chunk and enforces a strict JSON structure response without markdown formatting (no ` ```json ` blocks).
+*   **JSON Structure:**
+    ```json
+    {
+      "title": "A short title for the quiz",
+      "questions": [
+        {
+          "questionText": "The question string",
+          "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+          "correctOptionIndex": 0,
+          "explanation": "Why this is correct"
+        }
+      ]
+    }
+    ```
+*   **Execution:** The app uses Gson to parse the returned JSON string into Kotlin data classes (`Quiz`, `Question`). It accumulates questions from all chunks and returns the complete quiz to the UI.
+
+### 2.5 Title Generation (`generateTitle`)
+A smaller, faster request is made simply to generate a concise title (max 5 words) based on the first 2000 characters of an uploaded document.
+
+---
+
+## 3. Detailed File-by-File Analysis
+
+### 3.1 Data Layer
+
+**`app/src/main/java/com/example/studyapp/data/local/StudyDatabase.kt`**
+*   **Purpose:** The central Room Database configuration file.
+*   **Logic:** It defines the database schema, listing all entities (`StudySession`, `DocumentHistory`, `SummaryHistory`, `QuizHistory`). It provides abstract functions to retrieve the DAOs and uses a Singleton pattern (`getDatabase`) to ensure only one instance of the database is created across the app's lifecycle.
+
+**`app/src/main/java/com/example/studyapp/data/local/StudySessionDao.kt`**
+*   **Purpose:** Data Access Object for study session analytics.
+*   **Logic:** Contains SQL queries to insert new study sessions and retrieve complex analytics data using Kotlin `Flow`. It includes queries for:
+    *   `getTotalDurationInRange`: Sums study time between two dates.
+    *   `getLongestSessionDuration`: Finds the maximum session time.
+    *   `getBestStudyDay`: Groups by date to find the day with the highest total study time.
+    *   `getDailyTotalsInRange`: Retrieves daily aggregates for charting.
+    *   `getAllStudyDatesDesc`: Used for calculating current study streaks.
+
+**`app/src/main/java/com/example/studyapp/data/local/HistoryDao.kt`**
+*   **Purpose:** Data Access Object for saved documents, summaries, and quizzes.
+*   **Logic:** Provides CRUD (Create, Read, Update, Delete) operations for `DocumentHistory`, `SummaryHistory`, and `QuizHistory`. Summaries and quizzes are linked to their parent documents via a `documentId` foreign key relationship.
+
+**`app/src/main/java/com/example/studyapp/data/local/QuizModels.kt`**
+*   **Purpose:** Defines the data structure for parsed AI quizzes.
+*   **Logic:** Contains simple Kotlin data classes (`Quiz`, `Question`). These classes directly map to the JSON structure requested from the Groq API, allowing Gson to automatically deserialize the network response into usable Kotlin objects.
+
+**`app/src/main/java/com/example/studyapp/data/repository/StudyRepository.kt`**
+*   **Purpose:** The single source of truth for all data in the app.
+*   **Logic:** It wraps the Room DAOs. The ViewModel interacts exclusively with this repository rather than calling DAOs directly. This abstracts the data source away from the UI and state management, providing a clean API for inserting and fetching data flows.
+
+### 3.2 Network and AI Layer
+
+**`app/src/main/java/com/example/studyapp/network/GroqApiService.kt`**
+*   **Purpose:** Defines the Retrofit network interface and data models for the Groq API.
+*   **Logic:**
+    *   Defines data classes `GroqRequest`, `GroqMessage`, `GroqResponse`, and `GroqChoice` which mirror the OpenAI-compatible JSON structure required by Groq.
+    *   Provides the interface `createChatCompletion` annotated with `@POST`, handling the HTTP request body and Authorization header injection.
+
+**`app/src/main/java/com/example/studyapp/ai/OnlineAIManager.kt`**
+*   **Purpose:** Orchestrates the complex logic of preparing text, communicating with the API, and handling responses.
+*   **Logic:**
+    *   **Chunking:** Contains the `chunkText` function which splits text into 20,000-character blocks, ensuring words aren't split by looking for the nearest space or newline.
+    *   **Explanation Generation (`generateSummaryStream`):** Creates custom prompts asking for "Detailed Overview, Core Concepts, Practical Examples". Emits states (`Success`, `Waiting`, `Error`) via Kotlin Flow to update the UI progressively. Implements a 60-second rate limit delay between chunks.
+    *   **Quiz Generation (`generateQuizStream`):** Distributes the requested number of questions across chunks. Forces the LLM to output raw JSON. Cleans the output (removing markdown blocks) and parses it using Gson. Accumulates the parsed `Question` objects and emits the final combined quiz JSON.
+    *   **Title Generation (`generateTitle`):** A simple blocking suspend function that returns a short title based on the first snippet of a document.
+
+### 3.3 UI Layer (Jetpack Compose)
+
+**`app/src/main/java/com/example/studyapp/MainActivity.kt`**
+*   **Purpose:** The entry point of the Android application.
+*   **Logic:** Sets the Compose content, applies the `StudyAppTheme`, and sets up Jetpack Navigation (`NavHost`) to route between the Dashboard, Study Screen, History, and Settings. It also instantiates the shared `StudyViewModel`.
+
+**`app/src/main/java/com/example/studyapp/ui/study/StudyViewModel.kt`**
+*   **Purpose:** State management and business logic handler.
+*   **Logic:**
+    *   Maintains UI state using `MutableStateFlow` (e.g., `_isStudying`, `_elapsedTimeSeconds`).
+    *   **Timer Logic:** Contains a coroutine that increments the elapsed time every second while studying is active.
+    *   **Session Saving:** When studying is toggled off, it calculates the duration and saves a `StudySession` to the database.
+    *   **Analytics Calculation:** Contains logic to compute the current study streak by analyzing the sorted list of historical study dates. Processes daily totals to ensure empty days are represented as 0 duration for the past 7 days chart.
+    *   **History Management:** Handles saving generated summaries and quizzes, linking them to an automatically generated `DocumentHistory` entry.
+
+**`app/src/main/java/com/example/studyapp/ui/study/StudyScreen.kt`**
+*   **Purpose:** The main interaction screen for uploading documents and generating AI content.
+*   **Logic:**
+    *   Provides UI to launch the Android file picker.
+    *   On file selection, runs `DocumentParser` on a background thread (`Dispatchers.IO`).
+    *   Provides buttons to trigger "Generate Explanation" or "Generate Quiz".
+    *   Displays the custom `DynamicWaveLoader` during processing.
+    *   Renders explanations using the `RichTextView` and quizzes using `QuizUI`.
+    *   Includes a floating timer displaying the current study session duration.
+
+**`app/src/main/java/com/example/studyapp/ui/study/DashboardScreen.kt`**
+*   **Purpose:** Displays user study analytics and charts.
+*   **Logic:**
+    *   Collects state flows from the ViewModel (Today/Week/Month durations, longest session, streak).
+    *   **Chart Rendering:** Instead of using native Compose charting libraries, it dynamically generates an HTML document containing the analytics data injected into a Chart.js script. This HTML string is then rendered using the `HtmlWebView` composable for a highly customized visual presentation.
+
+**`app/src/main/java/com/example/studyapp/ui/study/QuizUI.kt`**
+*   **Purpose:** Renders the interactive multiple-choice quiz interface.
+*   **Logic:**
+    *   Parses the JSON quiz string back into `Quiz` models.
+    *   Randomizes the order of questions and the order of options within each question to prevent memorization of positions.
+    *   Maintains state of selected answers in a `mutableStateMapOf`.
+    *   Shows a progress bar as the user answers.
+    *   Upon submission, switches to a results view, highlighting correct/incorrect answers and displaying the AI-generated explanations for the correct answers. Calculates the final score percentage.
+
+**`app/src/main/java/com/example/studyapp/ui/study/DynamicWaveLoader.kt`**
+*   **Purpose:** A custom loading indicator.
+*   **Logic:** Uses Jetpack Compose `Canvas` and infinite animations (`rememberInfiniteTransition`) to draw overlapping sine waves and pulsing vertical lines, creating a visual "processing" effect that looks significantly better than a standard spinning circle.
+
+**`app/src/main/java/com/example/studyapp/ui/study/RichTextView.kt` & `app/src/main/java/com/example/studyapp/ui/study/HtmlWebView.kt`**
+*   **Purpose:** Wrappers around Android's `WebView` to render complex HTML, Markdown, MathJax, and Code syntax highlighting.
+*   **Logic:** The app relies on WebView rather than native Markdown components to handle the complex formatting generated by the AI (specifically LaTeX math formulas via MathJax and code blocks via highlight.js).
+
+### 3.4 Utility Layer
+
+**`app/src/main/java/com/example/studyapp/utils/DocumentParser.kt`**
+*   **Purpose:** Extracts raw text from various file formats.
+*   **Logic:** Takes an Android `Uri` from the file picker. Based on the MIME type or file extension, it routes to specific extraction logic:
+    *   **PDFs:** Uses `PDFBox` (`PDDocument`, `PDFTextStripper`).
+    *   **Office Docs (.doc, .docx, .ppt, .xls):** Uses Apache POI (`ExtractorFactory`).
+    *   **Text/Fallback:** Uses standard Java `BufferedReader` and `InputStreamReader`.
+
+**`build.gradle.kts (App Level)`**
+*   **Purpose:** Build configuration and dependency management.
+*   **Logic:** Configures the Android SDK versions, enables Jetpack Compose, and declares dependencies including Room, Retrofit, PDFBox, Apache POI, and Vico (though Chart.js via WebView is used for the main dashboard).
+
+---
+*End of Document*
