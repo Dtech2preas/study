@@ -8,7 +8,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.studyapp.BuildConfig
 import com.example.studyapp.data.preferences.SettingsPreferences
+import com.example.studyapp.utils.AppUpdater
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -18,6 +21,7 @@ fun SettingsScreen() {
 
     var apiKey by remember { mutableStateOf(settingsPreferences.getApiKey() ?: "") }
     var saveStatus by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -72,6 +76,30 @@ fun SettingsScreen() {
                 color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.bodyMedium
             )
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Divider(modifier = Modifier.padding(vertical = 16.dp))
+
+        Text(
+            text = "App Version: ${BuildConfig.GIT_TAG}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                coroutineScope.launch {
+                    AppUpdater.checkForUpdates(context)
+                }
+            },
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) {
+            Text("Check for Updates")
         }
     }
 }
