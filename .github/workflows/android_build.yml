@@ -38,6 +38,9 @@ jobs:
         APP_VERSION_TAG: "v1.2-${{ steps.vars.outputs.sha_short }}"
       run: ./gradlew :app:assembleRelease
 
+    - name: Setup Android SDK Build-Tools 29.0.3
+      run: echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3"
+
     - name: Sign APK
       uses: r0adkll/sign-android-release@v1
       id: sign_app
@@ -47,7 +50,6 @@ jobs:
         alias: ${{ secrets.ALIAS }}
         keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
         keyPassword: ${{ secrets.KEY_PASSWORD }}
-        buildToolsVersion: 33.0.1
 
     - name: Create Release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
