@@ -30,4 +30,7 @@ interface StudySessionDao {
 
     @Query("SELECT DISTINCT date FROM study_sessions ORDER BY date DESC")
     fun getAllStudyDatesDesc(): Flow<List<Long>>
+
+    @Query("SELECT SUM(durationInSeconds) FROM study_sessions WHERE date >= :startDate AND date <= :endDate")
+    suspend fun getTotalDurationInRangeDirectly(startDate: Long, endDate: Long): Long?
 }
