@@ -197,7 +197,8 @@ class OnlineAIManager(context: Context) {
                         messages = listOf(
                             GroqMessage(role = "system", content = "You are a helpful study assistant that creates comprehensive and engaging quizzes with a dynamic number of questions based on text length. You always respond in raw JSON format."),
                             GroqMessage(role = "user", content = prompt)
-                        )
+                        ),
+                        response_format = com.example.studyapp.network.GroqResponseFormat(type = "json_object")
                     )
                 )
 
@@ -212,6 +213,8 @@ class OnlineAIManager(context: Context) {
                         val endIndex = cleanJson.lastIndexOf("}")
                         if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
                             cleanJson = cleanJson.substring(startIndex, endIndex + 1)
+                        } else if (startIndex != -1 && endIndex == -1) {
+                            cleanJson = cleanJson.substring(startIndex) + "}" // Attempt rudimentary repair
                         }
 
                         val partialQuiz = com.google.gson.Gson().fromJson(cleanJson, com.example.studyapp.data.local.Quiz::class.java)

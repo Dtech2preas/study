@@ -5,8 +5,13 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 
 data class GroqRequest(
-    val model: String = "llama-3.1-8b-instant", // Use a fast lightweight model
-    val messages: List<GroqMessage>
+    val model: String = "llama3-8b-8192", // Use a fast lightweight model
+    val messages: List<GroqMessage>,
+    val response_format: GroqResponseFormat? = null
+)
+
+data class GroqResponseFormat(
+    val type: String = "json_object"
 )
 
 data class GroqMessage(
