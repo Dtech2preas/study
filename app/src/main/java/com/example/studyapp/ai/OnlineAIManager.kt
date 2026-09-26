@@ -195,7 +195,7 @@ class OnlineAIManager(context: Context) {
                     authHeader = "Bearer $apiKey",
                     request = GroqRequest(
                         messages = listOf(
-                            GroqMessage(role = "system", content = "You are a helpful study assistant that creates comprehensive and engaging quizzes with a dynamic number of questions based on text length. You always respond in raw JSON format."),
+                            GroqMessage(role = "system", content = "You are a helpful study assistant that creates comprehensive and engaging quizzes with a dynamic number of questions based on text length. You always respond in raw JSON format. You MUST output valid JSON only, starting with { and ending with }."),
                             GroqMessage(role = "user", content = prompt)
                         ),
                         response_format = com.example.studyapp.network.GroqResponseFormat(type = "json_object")
