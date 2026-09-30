@@ -22,9 +22,11 @@ fun DashboardScreen(viewModel: StudyViewModel) {
     val last7Days by viewModel.getLast7DaysStudyTime().collectAsState()
 
     // Generate JSON for chart data
+    // ⚡ Bolt: Hoist SimpleDateFormat with remember to avoid expensive allocations on every recomposition.
+    val dateFormat = remember { SimpleDateFormat("EEE", Locale.getDefault()) }
     val labels = last7Days.map {
         val date = Date(it.date)
-        SimpleDateFormat("EEE", Locale.getDefault()).format(date)
+        dateFormat.format(date)
     }
     val data = last7Days.map { it.totalDuration / 3600f } // Convert to hours
 
