@@ -50,8 +50,10 @@ fun HistoryScreen(viewModel: StudyViewModel) {
             } else if (documents.isEmpty()) {
                 Text("No history yet. Start studying!", modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 32.dp))
             } else {
+                // ⚡ Bolt: Hoist SimpleDateFormat with remember to avoid expensive allocations on every recomposition.
+                val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()) }
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(documents) { doc ->
+                    items(items = documents, key = { it.id }) { doc ->
                         Card(
                             modifier = Modifier.fillMaxWidth().clickable { selectedDocumentId = doc.id },
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -63,7 +65,7 @@ fun HistoryScreen(viewModel: StudyViewModel) {
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(text = doc.title, style = MaterialTheme.typography.titleMedium)
-                                    val dateStr = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(Date(doc.timestamp))
+                                    val dateStr = dateFormat.format(Date(doc.timestamp))
                                     Text(text = dateStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 IconButton(onClick = {
@@ -147,7 +149,8 @@ fun HistoryDetailScreen(documentId: Int, viewModel: StudyViewModel, onBack: () -
                 }
             } else if (selectedTab == 0) {
                 LazyColumn(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    items(summaries) { summary ->
+                    // ⚡ Bolt: Use key = { it.id } to prevent unnecessary recompositions when list items change.
+                    items(items = summaries, key = { it.id }) { summary ->
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
@@ -224,7 +227,8 @@ fun HistoryDetailScreen(documentId: Int, viewModel: StudyViewModel, onBack: () -
                         }
                     }
 
-                    items(quizzes) { quiz ->
+                    // ⚡ Bolt: Use key = { it.id } to prevent unnecessary recompositions when list items change.
+                    items(items = quizzes, key = { it.id }) { quiz ->
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                InteractiveQuizView(quiz.quizJson)
